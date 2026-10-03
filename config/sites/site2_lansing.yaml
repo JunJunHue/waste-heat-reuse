@@ -1,0 +1,19 @@
+id: site2_lansing
+name: "Lake Hawkeye (former Cayuga Power Plant), Lansing NY"
+kind: suburban_proposed
+data_center:
+  name: "TeraWulf Lake Hawkeye (proposed)"
+  # Approximate plant location on the east shore of Cayuga Lake. Verify against OSM in M4.
+  lon: -76.6336
+  lat: 42.6036
+  it_load_mw: {value: 150, low: 150, high: 400, confidence: low, source: "Public reporting varies: ~150 MW initial phase up to ~400 MW total. Parameterized."}
+  existing_cooling: liquid
+study_area:
+  bbox: [-76.700, 42.500, -76.480, 42.650]   # widened in M4 once offtaker candidates are mapped
+grid:
+  iso: NYISO
+  lbmp_zone: CENTRL
+weather:
+  lat: 42.6036
+  lon: -76.6336
+  year: 2023

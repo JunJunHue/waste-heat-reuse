@@ -1,0 +1,20 @@
+id: site1_chelsea
+name: "111 8th Avenue, Chelsea, Manhattan"
+kind: urban_commissioned
+data_center:
+  name: "111 8th Avenue (carrier hotel)"
+  lon: -74.0029
+  lat: 40.7411
+  # IT load is not publicly reported. This range is a labeled parameter, not a fact. See assumptions.yaml once the supply module lands.
+  it_load_mw: {value: 15, low: 5, high: 30, confidence: low, source: "No public figure; bracketed from building scale. Labeled in UI."}
+  existing_cooling: air
+study_area:
+  # roughly a 1.2 km box around the DC (Chelsea / Meatpacking / West Village edge)
+  bbox: [-74.0170, 40.7300, -73.9890, 40.7520]
+grid:
+  iso: NYISO
+  lbmp_zone: N.Y.C.
+weather:
+  lat: 40.7411
+  lon: -74.0029
+  year: 2023

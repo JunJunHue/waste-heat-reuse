@@ -1,0 +1,54 @@
+# Every number the engine uses lives here. Schema (enforced by heattwin.assumptions + tests):
+#   value: number | low/high: optional range used by what-ifs and Monte Carlo
+#   unit: string | source: URL or rationale | confidence: high | medium | low
+# Entries are added as modules are built; nothing is hardcoded in engine code.
+
+policy:
+  ll97_penalty:
+    value: 268
+    unit: USD/tCO2e
+    source: "NYC Local Law 97 of 2019, Admin Code §28-320.6 — https://www.nyc.gov/site/sustainablebuildings/ll97/ll97.page"
+    confidence: high
+  ll97_ef_natural_gas:
+    value: 0.00005311
+    unit: tCO2e/kBtu
+    source: "LL97 §28-320.3.1.1 emissions coefficients (2024–2029)"
+    confidence: high
+  ll97_ef_district_steam:
+    value: 0.00004493
+    unit: tCO2e/kBtu
+    source: "LL97 §28-320.3.1.1 emissions coefficients (2024–2029)"
+    confidence: high
+  ll97_ef_fuel_oil_2:
+    value: 0.00007421
+    unit: tCO2e/kBtu
+    source: "LL97 §28-320.3.1.1 emissions coefficients (2024–2029)"
+    confidence: high
+  ll97_ef_electricity:
+    value: 0.000288962
+    unit: tCO2e/kWh
+    source: "LL97 §28-320.3.1.1 emissions coefficients (2024–2029)"
+    confidence: high
+
+supply:
+  t_return_air_cooled:
+    value: 30
+    low: 25
+    high: 35
+    unit: degC
+    source: "Air-cooled hot-aisle/CRAH return water range; challenge prompt and OCP Heat Reuse whitepaper terminology"
+    confidence: medium
+  t_return_liquid_cooled:
+    value: 50
+    low: 45
+    high: 60
+    unit: degC
+    source: "Direct-to-chip facility water return; ASHRAE TC9.9 W45+ classes; OCP Heat Reuse whitepaper"
+    confidence: medium
+
+demand:
+  t_dhw_min:
+    value: 60
+    unit: degC
+    source: "Legionella control storage temperature — ASHRAE Standard 188 / WHO guidance"
+    confidence: high

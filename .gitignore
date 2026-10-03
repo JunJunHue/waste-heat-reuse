@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+data/raw/
+data/processed/
+node_modules/
+web/dist/
+web/.preview.pid
