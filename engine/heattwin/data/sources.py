@@ -103,6 +103,31 @@ def tiger_areawater(county_fips: str) -> Path:
     return fetch("census_tiger", name, f"https://www2.census.gov/geo/tiger/TIGER2022/AREAWATER/{name}", timeout=600)
 
 
+OVERTURE_RELEASE = "2026-09-23.0"
+
+
+def overture(site_id: str, theme: str, typ: str, bbox: list[float]) -> Path:
+    """Overture Maps features in a bbox (DuckDB reads only the row groups that intersect the bbox from S3)."""
+    import duckdb
+
+    dest = RAW / "overture" / f"{site_id}_{typ}.parquet"
+    if dest.exists():
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    w, s, e, n = bbox
+    url = f"s3://overturemaps-us-west-2/release/{OVERTURE_RELEASE}/theme={theme}/type={typ}/*"
+    tmp = dest.with_suffix(".parquet.part")
+    con = duckdb.connect()
+    con.sql("INSTALL httpfs; LOAD httpfs; INSTALL spatial; LOAD spatial; SET s3_region='us-west-2';")
+    con.sql(f"""COPY (SELECT * EXCLUDE (geometry), ST_AsWKB(geometry) AS geometry_wkb
+        FROM read_parquet('{url}', hive_partitioning=1)
+        WHERE bbox.xmin >= {w} AND bbox.xmax <= {e} AND bbox.ymin >= {s} AND bbox.ymax <= {n})
+        TO '{tmp}' (FORMAT PARQUET)""")
+    tmp.rename(dest)  # atomic: a crashed run never leaves a partial file that looks cached
+    record_derived("overture", dest, f"Overture {OVERTURE_RELEASE} {theme}/{typ} clipped to bbox {bbox}", url=url)
+    return dest
+
+
 # ---------------------------------------------------------------- Equity (both sites)
 def cdc_svi_ny() -> Path:
     """CDC/ATSDR Social Vulnerability Index 2022, New York census tracts."""

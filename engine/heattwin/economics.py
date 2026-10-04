@@ -12,8 +12,6 @@ import pandas as pd
 from .assumptions import Assumptions
 from .network import Design, crf
 
-MWH_PER_MMBTU = 0.293071
-
 
 def npv(rate: float, cashflows: list[float]) -> float:
     """cashflows[0] at t=0 (undiscounted), cashflows[t] at end of year t."""
@@ -24,9 +22,11 @@ def payback_years(capex: float, annual: float) -> float:
     return float(capex / annual) if annual > 0 else float("inf")
 
 
-def run(design: Design, a: Assumptions, cop_avg: float, grid_t_per_mwh: float, elec_price: float,
-        high_svi: float = 0.6) -> dict:
+def run(design: Design, a: Assumptions, site, cop_avg: float, grid_t_per_mwh: float, high_svi: float = 0.6) -> dict:
+    from . import fuels as F
+
     c = design.connected
+    elec_price = a.v(site.prices["hp_electricity"])
     loss = a.v("network.heat_loss_fraction")
     E = float(c.delivered_mwh.sum())                     # MWh/yr delivered to buildings
     produced = E / (1 - loss)                            # MWh/yr leaving the heat pump
@@ -54,14 +54,13 @@ def run(design: Design, a: Assumptions, cop_avg: float, grid_t_per_mwh: float, e
     lcoh = (capex * crf(rate, years) + elec_cost + om - dc_savings) / E if E else float("nan")
 
     # ---- environment (physical factors; real 2023 grid intensity)
-    total_fuel = (c.gas_kbtu + c.oil_kbtu + c.steam_kbtu).replace(0, np.nan)
-    eff = {"gas": a.v("demand.boiler_eff_gas"), "oil": a.v("demand.boiler_eff_oil"), "steam": a.v("demand.steam_to_heat_eff")}
-    ef = {"gas": a.v("emissions.ef_natural_gas_physical"), "oil": a.v("emissions.ef_oil2_physical"), "steam": a.v("emissions.ef_steam_physical")}
-    t_per_mwh_heat = sum((c[f"{f}_kbtu"] / total_fuel).fillna(0) * ef[f] / 1000 / eff[f] / MWH_PER_MMBTU for f in eff)
+    t_per_mwh_heat = F.per_mwh_heat(c, lambda f: F.physical_t_per_mmbtu(a, f, grid_t_per_mwh) / F.efficiency(a, f) / F.MWH_PER_MMBTU)
     t_fuel_avoided = float((c.delivered_mwh * t_per_mwh_heat).sum())
     t_grid_added = elec_mwh * grid_t_per_mwh
     t_dc_cooling_avoided = src_mwh / a.v("supply.dc_cooling_plant_cop") * grid_t_per_mwh
     tco2e = t_fuel_avoided - t_grid_added + t_dc_cooling_avoided
+    # heat the HP takes from the DC is heat the (evaporative) cooling plant no longer evaporates into the air
+    water_m3 = src_mwh * a.v("synthetic_demand.evaporative_water_m3_per_mwh")
 
     # ---- community
     high_vuln = c.is_nycha | (c.svi >= high_svi)
@@ -88,6 +87,7 @@ def run(design: Design, a: Assumptions, cop_avg: float, grid_t_per_mwh: float, e
             "homes_served": homes, "homes_high_vulnerability": homes_hv,
             "share_heat_to_high_vulnerability": heat_hv / E if E else 0.0,
             "nycha_homes_served": float(c.loc[c.is_nycha, "units_res"].sum()),
+            "water_saved_m3_per_yr": water_m3,
             "cop_avg": cop_avg, "hp_mw": design.hp_mw, "pipe_km": design.stats.get("pipe_km", 0.0),
             "dc_heat_reused_share": src_mwh / (design.stats.get("dc_heat_available_mwh") or np.nan),
         },

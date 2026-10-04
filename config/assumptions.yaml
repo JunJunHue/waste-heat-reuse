@@ -48,6 +48,11 @@ emissions:
     unit: kgCO2e/MMBtu
     source: "US EPA GHG Emission Factors Hub (distillate fuel oil No. 2)"
     confidence: high
+  ef_propane_physical:
+    value: 62.87
+    unit: kgCO2e/MMBtu
+    source: "US EPA GHG Emission Factors Hub (propane, 62.87 kg CO2/MMBtu)"
+    confidence: high
   ef_steam_physical:
     value: 44.93
     unit: kgCO2e/MMBtu
@@ -112,12 +117,31 @@ prices:
     source: "MEASURED: NYCHA Fulton Houses 2023 Con Ed steam bills (NYC Open Data smdw-73pj): 84,265 Mlb for $2,138,297 = $25.4/Mlb = $21.3/MMBtu at 1.194 MMBtu/Mlb. Seasonal: ~$30/Mlb winter, ~$12/Mlb summer. High end covers the 2024-25 rate increases (NY PSC order, +20.6% for SC-1)."
     confidence: high
   oil2_ny_2023:
-    value: 30
-    low: 22
-    high: 38
+    value: 33.8
+    low: 31.4
+    high: 36.3
     unit: USD/MMBtu
-    source: "Approximate NY 2023 retail heating oil (~$4.0-4.5/gal per NYSERDA weekly heating-fuel price series), / 0.1385 MMBtu/gal. Not re-verified against a fetched file. Oil is <10% of Site 1 fossil heat."
-    confidence: low
+    source: "EIA weekly NY residential heating oil (series W_EPD2F_PRS_SNY_DPG): Oct22-Mar23 avg $5.022/gal, Oct23-Mar24 avg $4.348/gal; mean $4.685/gal / 0.1385 MMBtu/gal. https://www.eia.gov/dnav/pet/hist_xls/W_EPD2F_PRS_SNY_DPGw.xls"
+    confidence: high
+  propane_ny_2023:
+    value: 36.6
+    low: 36.2
+    high: 37.0
+    unit: USD/MMBtu
+    source: "EIA weekly NY residential propane (series W_EPLLPA_PRS_SNY_DPG): Oct22-Mar23 avg $3.389/gal, Oct23-Mar24 avg $3.314/gal; mean $3.35/gal / 0.0915 MMBtu/gal. https://www.eia.gov/dnav/pet/hist_xls/W_EPLLPA_PRS_SNY_DPGw.xls"
+    confidence: high
+  gas_residential_ny_2023:
+    value: 16.30
+    unit: USD/MMBtu
+    source: "EIA NY residential natural gas price 2023 = $16.90/Mcf (https://www.eia.gov/dnav/ng/ng_pri_sum_dcu_SNY_a.htm), / 1.037 MMBtu/Mcf"
+    confidence: high
+  electricity_residential_ny_2023:
+    value: 222.4
+    low: 150
+    high: 250
+    unit: USD/MWh
+    source: "EIA Electric Power Annual Table 2.10: NY residential 2023 = 22.24 c/kWh. Statewide average, skewed up by NYC; upstate utilities are lower (low end of range)."
+    confidence: medium
   electricity_commercial_ny_2023:
     value: 180.1
     low: 150
@@ -491,3 +515,80 @@ continuity:
   hotel: {value: 0.6, unit: score, source: "Occupancy-dependent; frequent ownership change", confidence: medium}
   office: {value: 0.6, unit: score, source: "Daytime load; vacancy risk post-2020", confidence: medium}
   other: {value: 0.5, unit: score, source: "Retail, mixed and unknown types", confidence: low}
+
+synthetic_demand:
+  # Site 2 has no benchmarking law, so demand is SYNTHETIC: per-building-type intensities x footprint data.
+  # Every Site 2 building's demand is labeled "synthetic" in data and UI.
+  sf_space_heat_mmbtu:
+    value: 68.6
+    unit: MMBtu/household/yr (site energy)
+    source: "EIA RECS 2020 Table CE3.2, Northeast, single-family detached, space heating (verified from https://www.eia.gov/consumption/residential/data/2020/c&e/pdf/ce3.2.pdf)"
+    confidence: high
+  sf_water_heat_mmbtu:
+    value: 18.3
+    unit: MMBtu/household/yr (site energy)
+    source: "EIA RECS 2020 Table CE3.2, Northeast, single-family detached, water heating"
+    confidence: high
+  apt_space_heat_mmbtu:
+    value: 32.2
+    unit: MMBtu/household/yr (site energy)
+    source: "EIA RECS 2020 Table CE3.2, Northeast, apartments in 2-4 unit buildings, space heating"
+    confidence: high
+  apt_water_heat_mmbtu:
+    value: 16.7
+    unit: MMBtu/household/yr (site energy)
+    source: "EIA RECS 2020 Table CE3.2, Northeast, apartments in 2-4 unit buildings, water heating"
+    confidence: high
+  rural_heating_system_eff:
+    value: 0.82
+    unit: fraction
+    source: "Site-to-useful conversion for the rural fuel mix (propane/oil/gas furnaces and boilers ~0.78-0.90; electric resistance 1.0). Weighted estimate."
+    confidence: medium
+  school_heat_kbtu_ft2:
+    value: 45
+    low: 30
+    high: 60
+    unit: kBtu/ft2/yr (site energy, heating + DHW)
+    source: "Order-of-magnitude for Northeast K-12 schools (CBECS 2018 education buildings, cold climate). Not verified against a fetched table, hence low confidence."
+    confidence: low
+  greenhouse_heat_kwh_m2:
+    value: 400
+    low: 280
+    high: 550
+    unit: kWh_th/m2/yr
+    source: "Year-round heated vegetable greenhouse. Dutch practice ~280-360 kWh/m2 (Wageningen UR greenhouse energy monitoring), scaled up for the colder Finger Lakes climate. Used ONLY for a clearly labeled HYPOTHETICAL anchor offtaker."
+    confidence: low
+  evaporative_water_m3_per_mwh:
+    value: 1.47
+    unit: m3/MWh_th
+    source: "Physics: latent heat of vaporization ~2.45 GJ/m3 at ~25 C; 1 MWh = 3.6 GJ, so 1.47 m3 of water evaporated per MWh rejected by evaporative cooling. Heat reused instead of evaporated saves this lake water."
+    confidence: high
+
+rural:
+  pipe_cost_multiplier:
+    value: 0.40
+    low: 0.25
+    high: 0.60
+    unit: multiplier on the Manhattan pipe table
+    source: "Suburban/rural DH trenching in verges and low-traffic roads costs ~35-50% of dense inner-city installation (DEA district heating distribution catalogue: inner-city vs suburban). Site 2 uses this via its site config."
+    confidence: low
+  fuel_share_propane:
+    value: 0.30
+    unit: fraction of households
+    source: "FALLBACK ONLY (used when DOE LEAD tract heating-fuel mix is unavailable). Rural Tompkins County, estimated."
+    confidence: low
+  fuel_share_oil:
+    value: 0.20
+    unit: fraction of households
+    source: "FALLBACK ONLY; see fuel_share_propane"
+    confidence: low
+  fuel_share_gas:
+    value: 0.30
+    unit: fraction of households
+    source: "FALLBACK ONLY; NYSEG gas serves the Lansing village corridor"
+    confidence: low
+  fuel_share_elec:
+    value: 0.20
+    unit: fraction of households
+    source: "FALLBACK ONLY; see fuel_share_propane"
+    confidence: low

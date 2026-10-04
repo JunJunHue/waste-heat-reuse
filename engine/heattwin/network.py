@@ -50,11 +50,11 @@ def network_supply_temp(t_out: np.ndarray, a: Assumptions) -> np.ndarray:
     return lo + (hi - lo) * x
 
 
-def pick_dn(flow_mw: float, a: Assumptions) -> tuple[str, float]:
+def pick_dn(flow_mw: float, a: Assumptions, site_mult: float = 1.0) -> tuple[str, float]:
     """Smallest standard pipe that carries the flow; returns (dn, cost per metre)."""
     for dn, d in PIPES.items():
         if pipe_capacity_mw(d, a) >= flow_mw:
-            return dn, a.v(f"pipes.{dn}") * a.v("network.pipe_cost_multiplier_nyc")
+            return dn, a.v(f"pipes.{dn}") * a.v("network.pipe_cost_multiplier_nyc") * site_mult
     raise ValueError(f"flow {flow_mw:.1f} MW exceeds DN500")
 
 
@@ -88,32 +88,29 @@ def _nearest_nodes(g: nx.Graph, xy: np.ndarray) -> tuple[list, np.ndarray]:
 
 
 # ---------------------------------------------------------------- per-building annual value
-def building_value(cands: pd.DataFrame, a: Assumptions, cop_avg: np.ndarray, elec_price: float,
-                   equity_weight: float, ll97: bool) -> pd.DataFrame:
+def building_value(cands: pd.DataFrame, a: Assumptions, site, cop_avg: float, equity_weight: float) -> pd.DataFrame:
     """Annual $ value per building if connected (system view: all stakeholders combined)."""
+    from . import fuels as F
+
     df = cands.copy()
-    mwh_per_mmbtu = 0.293071
+    loss = a.v("network.heat_loss_fraction")
+    elec_price = a.v(site.prices["hp_electricity"])
     e = df.heat_mwh * a.v("network.hp_energy_coverage")  # heat the network delivers; the rest stays on existing boilers
-    total_fuel = (df.gas_kbtu + df.oil_kbtu + df.steam_kbtu).replace(0, np.nan)
-    share = {f: (df[f"{f}_kbtu"] / total_fuel).fillna(0) for f in ("gas", "oil", "steam")}
-    eff = {"gas": a.v("demand.boiler_eff_gas"), "oil": a.v("demand.boiler_eff_oil"), "steam": a.v("demand.steam_to_heat_eff")}
-    price = {"gas": a.v("prices.gas_commercial_ny_2023"), "oil": a.v("prices.oil2_ny_2023"), "steam": a.v("prices.steam_coned_2023")}
     # $/MWh of useful heat the building pays today, blended by its fuel mix
-    df["avoided_cost_per_mwh"] = sum(share[f] * price[f] / eff[f] / mwh_per_mmbtu for f in share)
-    df["hp_elec_cost_per_mwh"] = elec_price / cop_avg / (1 - a.v("network.heat_loss_fraction"))
+    df["avoided_cost_per_mwh"] = F.per_mwh_heat(df, lambda f: F.price_usd_per_mmbtu(a, site, f) / F.efficiency(a, f) / F.MWH_PER_MMBTU)
+    df["hp_elec_cost_per_mwh"] = elec_price / cop_avg / (1 - loss)
 
     # LL97-accounted emissions (2024-29 coefficients): fuel avoided minus heat-pump electricity added
-    ef = {"gas": a.v("policy.ll97_ef_natural_gas"), "oil": a.v("policy.ll97_ef_fuel_oil_2"), "steam": a.v("policy.ll97_ef_district_steam")}
-    t_fuel_per_mwh = sum(share[f] * ef[f] * 1000 / eff[f] / mwh_per_mmbtu for f in share)       # tCO2e per MWh useful heat
-    t_elec_per_mwh = a.v("policy.ll97_ef_electricity") * 1000 / cop_avg / (1 - a.v("network.heat_loss_fraction"))
-    df["tco2e_avoided_per_mwh"] = t_fuel_per_mwh - t_elec_per_mwh
-    ll97_rate = a.v("policy.ll97_penalty") * a.v("policy.ll97_capture_fraction") if ll97 else 0.0
+    t_fuel = F.per_mwh_heat(df, lambda f: F.ll97_t_per_mmbtu(a, f) / F.efficiency(a, f) / F.MWH_PER_MMBTU)
+    t_elec = a.v("policy.ll97_ef_electricity") * 1000 / cop_avg / (1 - loss)
+    df["tco2e_avoided_per_mwh"] = t_fuel - t_elec
+    ll97_rate = a.v("policy.ll97_penalty") * a.v("policy.ll97_capture_fraction") if site.policy.ll97 else 0.0
     df["ll97_value_per_mwh"] = np.where(df.is_nycha, 0.0, df.tco2e_avoided_per_mwh * ll97_rate)
     df["carbon_value_per_mwh"] = df.tco2e_avoided_per_mwh * a.v("finance.carbon_value")
     df["equity_value_per_mwh"] = equity_weight * a.v("network.equity_value_per_weight") * df.s_equity
 
     # Value to the data center: heat the HP evaporator removes is heat the DC cooling plant no longer rejects.
-    src_per_mwh = (1 - 1 / cop_avg) / (1 - a.v("network.heat_loss_fraction"))      # MWh source heat per MWh delivered
+    src_per_mwh = (1 - 1 / cop_avg) / (1 - loss)      # MWh source heat per MWh delivered
     df["dc_cooling_savings_per_mwh"] = src_per_mwh * elec_price / a.v("supply.dc_cooling_plant_cop")
 
     df["delivered_mwh"] = e
@@ -123,7 +120,8 @@ def building_value(cands: pd.DataFrame, a: Assumptions, cop_avg: np.ndarray, ele
     df["peak_net_mw"] = df.peak_mw * a.v("network.hp_peak_coverage")
     conv = np.where(df.needs_steam_conversion, a.v("building_interface.steam_conversion_cost_per_kw"), 0)
     # HX sized for the network's share of peak; existing boilers/steam stay as peak and backup supply
-    df["interface_capex_usd"] = df.peak_net_mw * 1000 * (a.v("building_interface.substation_cost_per_kw") + conv)
+    df["interface_capex_usd"] = df.peak_net_mw * 1000 * (a.v("building_interface.substation_cost_per_kw") + conv) \
+        + df.get("distribution_capex_usd", 0)   # Site 2 residential clusters carry an in-cluster distribution cost
     return df
 
 
@@ -142,7 +140,8 @@ class Design:
 
 
 def optimize(cands: pd.DataFrame, streets: gpd.GeoDataFrame, dc_lonlat: tuple[float, float],
-             q_src_firm_mw: float, cop_design: float, a: Assumptions, time_limit: int = 120) -> Design:
+             q_src_firm_mw: float, cop_design: float, a: Assumptions, time_limit: int = 120,
+             pipe_mult: float = 1.0) -> Design:
     g = street_graph(streets)
     pts = gpd.GeoSeries(gpd.points_from_xy(cands.lon, cands.lat), crs="EPSG:4326").to_crs(UTM)
     cand_nodes, service_m = _nearest_nodes(g, np.c_[pts.x, pts.y])
@@ -152,8 +151,8 @@ def optimize(cands: pd.DataFrame, streets: gpd.GeoDataFrame, dc_lonlat: tuple[fl
     cands["conn_capex_usd"] = cands.interface_capex_usd + cands.service_m * a.v("network.service_line_cost_per_m")
 
     r = crf(a.v("network.design_discount_rate"), a.v("finance.analysis_years"))
-    fixed_m = a.v("network.pipe_cost_fixed_per_m") * a.v("network.pipe_cost_multiplier_nyc")
-    var_mw_m = a.v("network.pipe_cost_per_mw_m") * a.v("network.pipe_cost_multiplier_nyc")
+    fixed_m = a.v("network.pipe_cost_fixed_per_m") * a.v("network.pipe_cost_multiplier_nyc") * pipe_mult
+    var_mw_m = a.v("network.pipe_cost_per_mw_m") * a.v("network.pipe_cost_multiplier_nyc") * pipe_mult
     c_hp = a.v("heat_pump.capex_per_kw_th") * 1000
     hp_max = q_src_firm_mw * cop_design / (cop_design - 1)   # evaporator duty limited by firm source heat
     f_max = min(pipe_capacity_mw(PIPES["dn500"], a), hp_max)   # tightest valid big-M for the flow-pipe link
@@ -225,7 +224,7 @@ def optimize(cands: pd.DataFrame, streets: gpd.GeoDataFrame, dc_lonlat: tuple[fl
             flow = (f[(i, 0)].value() or 0) + (f[(i, 1)].value() or 0)
             if flow < 1e-6:
                 continue
-            dn, cost_m = pick_dn(flow, a)
+            dn, cost_m = pick_dn(flow, a, pipe_mult)
             ed = g.edges[u, v]
             rows.append({"flow_mw": flow, "dn": dn, "length_m": ed["length"], "capex_usd": cost_m * ed["length"],
                          "geometry": ed["geom"]})

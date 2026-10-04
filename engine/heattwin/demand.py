@@ -73,6 +73,8 @@ def offtakers_from_ll84(buildings: gpd.GeoDataFrame, a: Assumptions, site: Site)
     agg["lon"] = (b.lon * b.w).groupby(b.ll84_property).sum() / w
     agg["lat"] = (b.lat * b.w).groupby(b.ll84_property).sum() / w
     agg["oil_kbtu"] = agg.oil_kbtu + agg.oil4_kbtu + agg.oil56_kbtu
+    agg["propane_kbtu"] = 0.0
+    agg["elecheat_kbtu"] = 0.0   # LL84 electricity is whole-building use, not heating; not counted as switchable heat
     agg = agg.drop(columns=["oil4_kbtu", "oil56_kbtu"]).reset_index().rename(columns={"ll84_property": "name"})
     agg["id"] = "o" + agg.index.astype(str)
 
@@ -157,3 +159,121 @@ def validate_against_nycha_steam(ranked: pd.DataFrame, M_by_id: dict[str, np.nda
         "steam_cost_usd": float(usd.sum()), "steam_price_usd_per_mmbtu": float(usd.sum() / metered_mmbtu.sum()),
         "source": "NYC Open Data smdw-73pj (NYCHA steam consumption and cost), 2023 bills",
     }
+
+
+# ---------------------------------------------------------------- Site 2: synthetic demand
+def fuel_mix_for_tracts(geoids: pd.Series, a: Assumptions) -> pd.DataFrame:
+    """Household heating-fuel shares per tract: DOE LEAD (TEN-HFL cohorts) when cached, else labeled fallback."""
+    from .data.cache import RAW
+    p = RAW / "doe_lead" / "NY_AMI_census_tracts_2022.csv"
+    fallback = pd.DataFrame({"GEOID": geoids.unique()}).assign(
+        gas=a.v("rural.fuel_share_gas"), oil=a.v("rural.fuel_share_oil"), propane=a.v("rural.fuel_share_propane"),
+        elecheat=a.v("rural.fuel_share_elec"), fuel_mix_source="FALLBACK estimate (rural.fuel_share_*)")
+    if not p.exists():
+        return fallback
+    df = pd.read_csv(p, dtype={"FIP": str}, low_memory=False)
+    col = next((c for c in df.columns if "HFL" in c.upper()), None)
+    if col is None or "UNITS" not in df:
+        return fallback
+    df["FIP"] = df.FIP.str.zfill(11)
+    df = df[df.FIP.isin(set(geoids))]
+    fuel = df[col].astype(str).str.upper()
+    key = np.select([fuel.str.contains("UTILITY GAS|NATURAL GAS"), fuel.str.contains("FUEL OIL|KEROSENE"),
+                     fuel.str.contains("BOTTLED|LP|PROPANE"), fuel.str.contains("ELECTRIC")],
+                    ["gas", "oil", "propane", "elecheat"], "other")
+    piv = df.assign(fuel=key).pivot_table(index="FIP", columns="fuel", values="UNITS", aggfunc="sum").fillna(0)
+    for f in ("gas", "oil", "propane", "elecheat"):
+        if f not in piv:
+            piv[f] = 0.0
+    tot = piv[["gas", "oil", "propane", "elecheat"]].sum(axis=1).replace(0, np.nan)
+    out = piv[["gas", "oil", "propane", "elecheat"]].div(tot, axis=0).reset_index().rename(columns={"FIP": "GEOID"})
+    out["fuel_mix_source"] = "DOE LEAD 2022 tract heating-fuel mix"
+    return pd.concat([out.dropna(), fallback[~fallback.GEOID.isin(out.dropna().GEOID)]], ignore_index=True)
+
+
+def offtakers_synthetic(buildings: gpd.GeoDataFrame, a: Assumptions, site: Site) -> tuple[gpd.GeoDataFrame, pd.DataFrame]:
+    """Site 2: homes grouped into grid clusters + schools/civic individually + labeled hypothetical anchors.
+
+    All demand is SYNTHETIC (RECS 2020 Northeast per-household intensities; school intensity; greenhouse intensity).
+    """
+    cfg = site.synthetic
+    eff = a.v("synthetic_demand.rural_heating_system_eff")
+    b = buildings[~buildings.is_dc].copy()
+    utm = b.to_crs("EPSG:32618")
+    b["x"], b["y"] = utm.centroid.x, utm.centroid.y
+    mmbtu = lambda sh, dhw: (sh, dhw)
+    sf = mmbtu(a.v("synthetic_demand.sf_space_heat_mmbtu"), a.v("synthetic_demand.sf_water_heat_mmbtu"))
+    apt = mmbtu(a.v("synthetic_demand.apt_space_heat_mmbtu"), a.v("synthetic_demand.apt_water_heat_mmbtu"))
+    res = b[b.use.str.startswith("residential")].copy()
+    res["sh_site_mmbtu"] = res.units_res * np.where(res.is_apartment, apt[0], sf[0])
+    res["dhw_site_mmbtu"] = res.units_res * np.where(res.is_apartment, apt[1], sf[1])
+    res["cell"] = (res.x // cfg.cluster_m).astype(int).astype(str) + "_" + (res.y // cfg.cluster_m).astype(int).astype(str)
+
+    rows = []
+    for cell, grp in res.groupby("cell"):
+        homes = float(grp.units_res.sum())
+        rows.append({"name": f"{int(homes)} homes (cluster {cell})", "ll84_type": "Residential cluster (synthetic)",
+                     "kind": "residential_cluster", "units_res": homes, "is_residential": True,
+                     "sh_site_mmbtu": grp.sh_site_mmbtu.sum(), "dhw_site_mmbtu": grp.dhw_site_mmbtu.sum(),
+                     "x": grp.x.mean(), "y": grp.y.mean(), "bins": grp.bin.tolist(), "svi": grp.svi.mean(),
+                     "energy_burden_pct": grp.energy_burden_pct.mean(), "GEOID": grp.GEOID.mode().iat[0] if grp.GEOID.notna().any() else None,
+                     "distribution_m": homes * cfg.service_m_per_home, "n_buildings": len(grp)})
+    inst = b[b.use.isin(["school", "civic"])].copy()
+    school_kbtu = a.v("synthetic_demand.school_heat_kbtu_ft2")
+    for _, r in inst.iterrows():
+        site_mmbtu = r.footprint_m2 * r.floors * 10.7639 * school_kbtu / 1000
+        rows.append({"name": r["name"] or f"{r.use.title()} building", "ll84_type": f"{r.use.title()} (synthetic)",
+                     "kind": r.use, "units_res": 0.0, "is_residential": False,
+                     "sh_site_mmbtu": site_mmbtu * 0.9, "dhw_site_mmbtu": site_mmbtu * 0.1,
+                     "x": r.x, "y": r.y, "bins": [r.bin], "svi": r.svi, "energy_burden_pct": r.energy_burden_pct,
+                     "GEOID": r.GEOID, "distribution_m": 0.0, "n_buildings": 1})
+    dc = gpd.GeoSeries(gpd.points_from_xy([site.data_center.lon], [site.data_center.lat]), crs="EPSG:4326").to_crs("EPSG:32618")[0]
+    for anc in cfg.hypothetical_anchors:
+        mwh = anc.area_m2 * a.v("synthetic_demand.greenhouse_heat_kwh_m2") / 1000
+        site_mmbtu = mwh / MWH_PER_MMBTU_ / eff
+        rows.append({"name": anc.name, "ll84_type": "HYPOTHETICAL anchor", "kind": "hypothetical", "units_res": 0.0,
+                     "is_residential": True,   # 24/7 heated: residential space-heat shape is the closer proxy
+                     "sh_site_mmbtu": site_mmbtu, "dhw_site_mmbtu": 0.0, "x": dc.x + anc.offset_m[0], "y": dc.y + anc.offset_m[1],
+                     "bins": [], "svi": np.nan, "energy_burden_pct": np.nan, "GEOID": None, "distribution_m": 0.0,
+                     "n_buildings": 0, "note": anc.note})
+    off = pd.DataFrame(rows)
+    ll = gpd.GeoSeries(gpd.points_from_xy(off.x, off.y), crs="EPSG:32618").to_crs("EPSG:4326")
+    off["lon"], off["lat"] = ll.x.to_numpy(), ll.y.to_numpy()
+    off["svi"] = off.svi.fillna(buildings.svi.median())
+    off["GEOID"] = off.GEOID.fillna(buildings.GEOID.mode().iat[0])
+
+    # fuel mix -> per-fuel site kBtu so the shared fuel valuation applies unchanged
+    mix = fuel_mix_for_tracts(off.GEOID, a).set_index("GEOID")
+    site_kbtu = (off.sh_site_mmbtu + off.dhw_site_mmbtu) * 1000
+    for f in ("gas", "oil", "propane", "elecheat"):
+        off[f"{f}_kbtu"] = site_kbtu * off.GEOID.map(mix[f]).fillna(a.v(f"rural.fuel_share_{'elec' if f == 'elecheat' else f}"))
+    off["steam_kbtu"] = 0.0
+    off["fuel_mix_source"] = off.GEOID.map(mix.fuel_mix_source).fillna("FALLBACK estimate (rural.fuel_share_*)")
+    hyp = off.kind.eq("hypothetical")
+    off.loc[hyp, ["gas_kbtu", "oil_kbtu", "elecheat_kbtu"]] = 0.0
+    off.loc[hyp, "propane_kbtu"] = site_kbtu[hyp]      # a new greenhouse's counterfactual: a propane-fired boiler
+    off.loc[hyp, "fuel_mix_source"] = "Counterfactual: propane boiler (hypothetical anchor)"
+
+    off["heat_mwh"] = site_kbtu / 1000 * MWH_PER_MMBTU_ * eff
+    off["dhw_mwh"] = off.dhw_site_mmbtu * MWH_PER_MMBTU_ * eff
+    off["sh_mwh"] = off.heat_mwh - off.dhw_mwh
+    off["primary_fuel"] = off[["gas_kbtu", "oil_kbtu", "propane_kbtu", "elecheat_kbtu"]].idxmax(axis=1).str.replace("_kbtu", "")
+    off["is_nycha"] = False
+    off["units_source"] = np.where(off.kind.eq("residential_cluster"), "Overture footprints (1 home per house)", "—")
+    off["year_built"] = np.nan
+    off["t_supply_design_c"] = a.v("demand.t_supply_design_pre1980")
+    off["needs_steam_conversion"] = False
+    off["address"] = None
+    off["gfa_m2"] = np.nan
+    off["synthetic"] = True
+    off["distribution_capex_usd"] = off.distribution_m * a.v("network.service_line_cost_per_m") * a.v("rural.pipe_cost_multiplier")
+    off["id"] = "s" + off.index.astype(str)
+
+    small = (off.heat_mwh < a.v("demand.min_annual_heat_mwh")) & ~hyp
+    screened = off[small].assign(screen_reason=f"Annual heat below {a.v('demand.min_annual_heat_mwh'):.0f} MWh (phase-1 threshold)")
+    screened = screened[["id", "name", "ll84_type", "heat_mwh", "screen_reason", "lon", "lat"]]
+    keep = off[~small].reset_index(drop=True)
+    return gpd.GeoDataFrame(keep, geometry=gpd.points_from_xy(keep.lon, keep.lat), crs="EPSG:4326"), screened.reset_index(drop=True)
+
+
+MWH_PER_MMBTU_ = 0.293071

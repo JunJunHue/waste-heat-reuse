@@ -38,3 +38,14 @@ screening:
     - pattern: "(?i)^111 Eighth Avenue$"
       reason: "The data center building itself (heat source)"
       source: "LL84 BBL 1007390001"
+policy:
+  ll97: true
+prices:   # assumption keys used to value each fuel a building switches away from, and the heat pump's electricity
+  gas: prices.gas_commercial_ny_2023
+  oil: prices.oil2_ny_2023
+  steam: prices.steam_coned_2023
+  propane: prices.propane_ny_2023
+  elecheat: prices.electricity_commercial_ny_2023
+  hp_electricity: prices.electricity_commercial_ny_2023
+network:
+  pipe_cost_multiplier_key: null   # the pipes.* table is already priced for Manhattan

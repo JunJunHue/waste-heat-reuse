@@ -5,13 +5,15 @@ adapter: synthetic_upstate
 kind: suburban_proposed
 data_center:
   name: "TeraWulf Lake Hawkeye (proposed)"
-  # Approximate plant location on the east shore of Cayuga Lake. Verify against OSM in M4.
+  # Former Milliken / Cayuga Generating Station, east shore of Cayuga Lake.
   lon: -76.6336
   lat: 42.6036
-  it_load_mw: {value: 150, low: 150, high: 400, confidence: low, source: "Public reporting varies: ~150 MW initial phase up to ~400 MW total. Parameterized."}
-  existing_cooling: liquid
+  # TeraWulf 8-K (Aug 2025, ex. 99.1): "up to 400 MW of digital infrastructure capacity"; "138 MW ... expected to be
+  # ready for service in 2026". Gross power / PUE(liquid 1.2) -> IT. Phase I is the base case; full build-out is the high end.
+  it_load_mw: {value: 115, low: 115, high: 333, confidence: medium, source: "TeraWulf SEC 8-K (2025) ex. 99.1: 138 MW phase I, up to 400 MW gross; IT = gross / PUE 1.2. https://www.sec.gov/Archives/edgar/data/1083301/000110465925078086/tm2523008d1_ex99-1.htm"}
+  existing_cooling: liquid   # AI campus; assumption. Heat rejection is evaporative using Cayuga Lake water (Ithaca Voice, Sep 2025).
 study_area:
-  bbox: [-76.700, 42.500, -76.480, 42.650]   # widened in M4 once offtaker candidates are mapped
+  bbox: [-76.700, 42.500, -76.480, 42.650]
 grid:
   iso: NYISO
   lbmp_zone: CENTRL
@@ -20,3 +22,25 @@ weather:
   lat: 42.6036
   lon: -76.6336
   year: 2023
+policy:
+  ll97: false
+prices:
+  gas: prices.gas_residential_ny_2023
+  oil: prices.oil2_ny_2023
+  steam: prices.gas_residential_ny_2023     # no district steam upstate; unused
+  propane: prices.propane_ny_2023
+  elecheat: prices.electricity_residential_ny_2023
+  hp_electricity: prices.electricity_commercial_upstate_2023
+network:
+  pipe_cost_multiplier_key: rural.pipe_cost_multiplier   # rural verge trenching vs dense Manhattan streets
+synthetic:
+  cluster_m: 400               # homes within a 400 m grid cell form one offtaker ("cluster")
+  service_m_per_home: 35       # in-cluster distribution main + service per home
+  max_unknown_footprint_m2: 400  # untagged buildings larger than this are assumed agricultural/unheated
+  min_home_footprint_m2: 50
+  hypothetical_anchors:
+    - name: "Hypothetical greenhouse on the plant site (4 ha)"
+      kind: greenhouse
+      area_m2: 40000
+      offset_m: [350, -250]     # east, north of the DC point: inside the 183-acre leased parcel
+      note: "HYPOTHETICAL anchor offtaker to test co-located agriculture. Not a proposed or known project."

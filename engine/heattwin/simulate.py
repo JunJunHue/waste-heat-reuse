@@ -54,7 +54,10 @@ def run(site_id: str, sc: Scenario, a: Assumptions | None = None, cop: CopTable 
     sup = SU.run(site, a, hourly, sc, it["value"])
     t_src_out = float(sup.t_src_out_c.iloc[0])
 
-    off, screened = D.offtakers_from_ll84(buildings, a, site)
+    if site.adapter == "nyc":
+        off, screened = D.offtakers_from_ll84(buildings, a, site)
+    else:
+        off, screened = D.offtakers_synthetic(buildings, a, site)
     shp = D.shapes(hourly, a)
     M = D.hourly_matrix(off, shp)
     off["peak_mw"] = M.max(axis=1)
@@ -67,17 +70,17 @@ def run(site_id: str, sc: Scenario, a: Assumptions | None = None, cop: CopTable 
     w = M.sum(axis=0)
     cop_avg = float((cop_h * w).sum() / w.sum())
     cop_design = float(cop(t_src_out, a.v("network.t_supply_design_c") + approach))
-    elec = a.v("prices.electricity_commercial_ny_2023")
 
     el = ranked[ranked.eligible]
     cands = pd.concat([el.head(N_TOP_SCORE), el.sort_values("heat_mwh", ascending=False).head(N_TOP_HEAT)]).drop_duplicates("id")
-    cands = N.building_value(cands, a, np.full(len(cands), cop_avg), elec, sc.equity_weight, ll97=True)
-    design = N.optimize(cands, streets, (site.data_center.lon, site.data_center.lat), float(sup.q_src_mw.min()), cop_design, a)
+    cands = N.building_value(cands, a, site, cop_avg, sc.equity_weight)
+    design = N.optimize(cands, streets, (site.data_center.lon, site.data_center.lat), float(sup.q_src_mw.min()), cop_design, a,
+                        pipe_mult=a.v(site.network.pipe_cost_multiplier_key) if site.network.pipe_cost_multiplier_key else 1.0)
     design.stats["dc_heat_available_mwh"] = float(sup.q_src_mw.sum())
     t["milp"] = design.solve_seconds
 
     grid_t = float(hourly.grid_tco2_per_mwh.mean())
-    econ = EC.run(design, a, cop_avg, grid_t, elec)
+    econ = EC.run(design, a, site, cop_avg, grid_t)
     validation = D.validate_against_nycha_steam(ranked, M_lookup(off, M), hourly, a) if site.adapter == "nyc" else {}
     t["total"] = time.time() - t0
     return Result(site, sc, it, sup, ranked, screened, design, econ, cop_h, t_net, validation, t)

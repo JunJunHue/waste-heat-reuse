@@ -33,7 +33,10 @@ def fetch_site(site: Site) -> None:
         ]
         optional += [("NYC parks", lambda: S.nyc_parks(sid, bb))]
     else:
-        required += [("TIGER roads", lambda: S.tiger_roads(site.county_fips))]
+        required += [
+            ("TIGER roads", lambda: S.tiger_roads(site.county_fips)),
+            ("Overture buildings", lambda: S.overture(sid, "buildings", "building", bb)),
+        ]
 
     for name, fn in required:
         p = fn()

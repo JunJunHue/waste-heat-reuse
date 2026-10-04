@@ -54,6 +54,30 @@ class Screening(BaseModel):
     exclusions: list[Exclusion] = []
 
 
+class Policy(BaseModel):
+    ll97: bool = False
+
+
+class NetworkCfg(BaseModel):
+    pipe_cost_multiplier_key: str | None = None   # assumption key; None = 1.0 (Manhattan table as-is)
+
+
+class Anchor(BaseModel):
+    name: str
+    kind: str
+    area_m2: float
+    offset_m: list[float]
+    note: str
+
+
+class SyntheticCfg(BaseModel):
+    cluster_m: float = 400
+    service_m_per_home: float = 35
+    max_unknown_footprint_m2: float = 400
+    min_home_footprint_m2: float = 50
+    hypothetical_anchors: list[Anchor] = []
+
+
 class Site(BaseModel):
     id: str
     name: str
@@ -65,6 +89,10 @@ class Site(BaseModel):
     grid: Grid
     weather: Weather
     screening: Screening = Screening()
+    policy: Policy = Policy()
+    prices: dict[str, str]
+    network: NetworkCfg = NetworkCfg()
+    synthetic: SyntheticCfg | None = None
 
     @classmethod
     def load(cls, site_id: str) -> "Site":

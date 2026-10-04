@@ -121,10 +121,54 @@ def export_site(site: Site) -> Path:
         "data_center": {"name": dc.name, "lon": dc.lon, "lat": dc.lat,
                         "it_load_mw": dc.it_load_mw.model_dump(), "existing_cooling": dc.existing_cooling},
         "layers": {"buildings": "buildings.geojson", "streets": "streets.geojson", "context": "context.geojson"},
-        "labels": {"price_source": meta["price_source"]},
+        "labels": {
+            "price_source": meta["price_source"],
+            "demand_source": ("MEASURED: NYC LL84 2023 benchmarking (validated vs NYCHA metered steam)" if site.adapter == "nyc"
+                              else "SYNTHETIC: Overture footprints x EIA RECS 2020 Northeast intensities (no benchmarking law upstate)"),
+            "data_quality": "measured" if site.adapter == "nyc" else "synthetic",
+        },
         "scenarios": sorted(p.name for p in out.iterdir() if p.is_dir()),
-        "default_scenario": "air_g0_eq15",
+        "default_scenario": f"{site.data_center.existing_cooling}_g0_eq15",
     }
     (out / "manifest.json").write_text(json.dumps(manifest, indent=2))
     (WEB_DATA / "sites.json").write_text(json.dumps({"sites": sorted(p.name for p in WEB_DATA.iterdir() if p.is_dir())}))
     return out
+
+
+COMPARE_KPIS = [
+    # key, label, unit, better ("high"|"low"), group
+    ("homes_served", "Homes heated", "homes", "high", "community"),
+    ("homes_high_vulnerability", "High-vulnerability homes heated", "homes", "high", "community"),
+    ("share_heat_to_high_vulnerability", "Heat to high-vulnerability homes", "share", "high", "community"),
+    ("tco2e_avoided_per_yr", "CO₂e avoided", "t/yr", "high", "climate"),
+    ("water_saved_m3_per_yr", "Cooling water not evaporated", "m³/yr", "high", "climate"),
+    ("dc_heat_reused_share", "Data-center heat reused", "share", "high", "technical"),
+    ("cop_avg", "Heat-pump COP", "", "high", "technical"),
+    ("buildings_connected", "Offtakers connected", "", "high", "technical"),
+    ("pipe_km", "Network length", "km", "low", "technical"),
+    ("lcoh_usd_per_mwh", "Levelized cost of heat", "$/MWh", "low", "economic"),
+    ("system_npv_usd", "System NPV (6%, 25 yr)", "$", "high", "economic"),
+    ("ll97_penalties_avoided_usd_per_yr", "LL97 penalties avoided", "$/yr", "high", "economic"),
+]
+
+
+def export_compare(site_ids: list[str], scenario_id: str = "air_g0_eq15", fallback_scenario: str = "liquid_g0_eq15") -> Path:
+    """Same KPIs, same engine, both sites: the evidence behind our site choice."""
+    sites = []
+    for sid in site_ids:
+        site = Site.load(sid)
+        d = WEB_DATA / sid
+        res_path = next((d / s / "results.json" for s in (scenario_id, fallback_scenario) if (d / s / "results.json").exists()), None)
+        if res_path is None:
+            continue
+        r = json.loads(res_path.read_text())
+        man = json.loads((d / "manifest.json").read_text())
+        sites.append({"id": sid, "name": site.name, "kind": site.kind, "scenario": r["scenario"]["id"],
+                      "data_quality": man["labels"]["data_quality"], "demand_source": man["labels"]["demand_source"],
+                      "it_load_mw": r["it_load"]["value"], "dc_heat_gwh": r["supply"]["q_src_gwh"],
+                      "kpis": r["economics"]["kpis"], "capex_usd": r["economics"]["capex_usd"]["total"],
+                      "delivered_gwh": r["economics"]["energy_mwh"]["delivered"] / 1000})
+    out = {"kpis": [{"key": k, "label": l, "unit": u, "better": b, "group": g} for k, l, u, b, g in COMPARE_KPIS],
+           "sites": sites}
+    (WEB_DATA / "compare.json").write_text(json.dumps(_clean(out), indent=1))
+    return WEB_DATA / "compare.json"

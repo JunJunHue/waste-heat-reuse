@@ -198,6 +198,70 @@ def build_nyc_streets(site: Site) -> gpd.GeoDataFrame:
     return st[["physicalid", "full_street_name", "streetwidth", "length_m", "geometry"]]
 
 
+# ---------------------------------------------------------------- Site 2: synthetic upstate buildings
+RES_CLASSES = {"house", "detached", "residential", "semidetached_house", "terrace", "bungalow", "farmhouse", "cabin",
+               "static_caravan", "apartments", "dormitory", "houseboat"}
+SCHOOL_CLASSES = {"school", "kindergarten", "college", "university"}
+CIVIC_CLASSES = {"civic", "government", "public", "fire_station", "community_centre", "library", "townhall",
+                 "church", "chapel", "religious", "hospital", "clinic"}
+UNHEATED = {"barn", "shed", "garage", "garages", "greenhouse", "farm_auxiliary", "silo", "carport", "roof",
+            "storage_tank", "hut", "stable", "cowshed", "parking", "industrial", "warehouse", "transportation"}
+
+
+def build_upstate_buildings(site: Site, tracts: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Overture footprints -> typed buildings with a heat-use class. Every Site 2 building is labeled synthetic."""
+    import shapely
+
+    raw = pd.read_parquet(S.overture(site.id, "buildings", "building", site.study_area.bbox))
+    g = gpd.GeoDataFrame(raw.drop(columns=["geometry_wkb"]), geometry=shapely.from_wkb(raw.geometry_wkb), crs="EPSG:4326")
+    g = g[g.geometry.geom_type.isin(["Polygon", "MultiPolygon"])].copy()
+    g["footprint_m2"] = g.to_crs(UTM).area
+    cls = g.get("class", pd.Series(None, index=g.index)).astype("string").str.lower()
+    sub = g.get("subtype", pd.Series(None, index=g.index)).astype("string").str.lower()
+    floors = pd.to_numeric(g.get("num_floors"), errors="coerce")
+    height = pd.to_numeric(g.get("height"), errors="coerce")
+    g["floors"] = floors.fillna((height / 3.2).round()).fillna(1).clip(1, 10)
+    g["height_m"] = height.fillna(g.floors * 3.2 + 1.5)
+    cfg = site.synthetic
+
+    use = pd.Series("unheated", index=g.index)
+    use[cls.isin(RES_CLASSES) | sub.eq("residential")] = "residential"
+    use[cls.isin(SCHOOL_CLASSES) | sub.eq("education")] = "school"
+    use[cls.isin(CIVIC_CLASSES) | sub.isin(["civic", "religious", "medical"])] = "civic"
+    untagged = cls.isna() & sub.isna()
+    plausible_home = untagged & g.footprint_m2.between(cfg.min_home_footprint_m2, cfg.max_unknown_footprint_m2)
+    use[plausible_home] = "residential_assumed"
+    use[cls.isin(UNHEATED) | sub.isin(["agricultural", "industrial", "transportation"])] = "unheated"
+    g["use"] = use
+    g["is_apartment"] = cls.eq("apartments")
+    g["units_res"] = np.where(g.use.str.startswith("residential"),
+                              np.where(g.is_apartment, np.maximum(1, (g.footprint_m2 * g.floors / 90).round()), 1), 0)
+    g["name"] = g.get("names", pd.Series(None, index=g.index)).map(lambda n: n.get("primary") if isinstance(n, dict) else None)
+    g["bin"] = "ov" + g.id.astype(str).str[-12:]
+    g["is_nycha"] = False
+    g["is_dc"] = g.contains(gpd.points_from_xy([site.data_center.lon], [site.data_center.lat])[0])
+    g = g[["bin", "name", "use", "is_apartment", "units_res", "footprint_m2", "floors", "height_m", "is_nycha", "is_dc", "geometry"]]
+    return _attach_tracts(gpd.GeoDataFrame(g, crs="EPSG:4326"), tracts)
+
+
+def build_tiger_streets(site: Site) -> gpd.GeoDataFrame:
+    w, s, e, n = site.study_area.bbox
+    box = gpd.GeoSeries.from_xy([w, e], [s, n], crs="EPSG:4326").union_all().envelope
+    rd = gpd.read_file(f"zip://{S.tiger_roads(site.county_fips)}").to_crs("EPSG:4326")
+    rd = rd[rd.MTFCC.isin(["S1100", "S1200", "S1400"])]          # primary, secondary, local public roads
+    rd = gpd.clip(rd, box).explode(index_parts=False).reset_index(drop=True)
+    rd = rd[rd.geometry.geom_type == "LineString"]
+    rd["length_m"] = rd.to_crs(UTM).length
+    return rd.rename(columns={"FULLNAME": "full_street_name"})[["full_street_name", "length_m", "geometry"]]
+
+
+def build_water_context(site: Site) -> gpd.GeoDataFrame:
+    w, s, e, n = site.study_area.bbox
+    box = gpd.GeoSeries.from_xy([w, e], [s, n], crs="EPSG:4326").union_all().envelope
+    water = gpd.read_file(f"zip://{S.tiger_areawater(site.county_fips)}").to_crs("EPSG:4326")
+    return gpd.clip(water, box).assign(kind="water", name=lambda d: d.FULLNAME)[["kind", "name", "geometry"]]
+
+
 # ---------------------------------------------------------------- hourly (both sites)
 def build_hourly(site: Site, a: Assumptions) -> pd.DataFrame:
     wx = json.loads(S.open_meteo(site.id, site.weather.lat, site.weather.lon, site.weather.year).read_text())["hourly"]
@@ -259,6 +323,10 @@ def prepare(site_id: str) -> Path:
         build_nyc_buildings(site, tracts).to_parquet(out / "buildings.parquet")
         build_nyc_streets(site).to_parquet(out / "streets.parquet")
         build_nyc_context(site).to_parquet(out / "context.parquet")
+    elif site.adapter == "synthetic_upstate":
+        build_upstate_buildings(site, tracts).to_parquet(out / "buildings.parquet")
+        build_tiger_streets(site).to_parquet(out / "streets.parquet")
+        build_water_context(site).to_parquet(out / "context.parquet")
     else:
-        raise NotImplementedError(f"adapter {site.adapter!r} lands in M4")
+        raise NotImplementedError(f"unknown adapter {site.adapter!r}")
     return out

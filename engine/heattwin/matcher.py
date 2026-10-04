@@ -37,9 +37,9 @@ def _continuity(row, a: Assumptions) -> float:
     t = str(row.ll84_type or "")
     if row.is_nycha:
         return a.v("continuity.public_housing")
-    if any(k in t for k in ("Hospital", "College", "University", "School", "Medical")):
+    if any(k in t for k in ("Hospital", "College", "University", "School", "Medical", "Civic")):
         return a.v("continuity.institution")
-    if any(k in t for k in ("Multifamily", "Residence", "Senior", "Dormitory")):
+    if any(k in t for k in ("Multifamily", "Residence", "Senior", "Dormitory", "Residential")):
         return a.v("continuity.multifamily")
     if "Hotel" in t:
         return a.v("continuity.hotel")
