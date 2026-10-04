@@ -32,3 +32,4 @@ packages = ["engine/heattwin"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning:pulp.*"]

@@ -43,6 +43,17 @@ class Weather(BaseModel):
     year: int
 
 
+class Exclusion(BaseModel):
+    pattern: str
+    reason: str
+    source: str
+
+
+class Screening(BaseModel):
+    max_fossil_intensity_kbtu_ft2: float = 200
+    exclusions: list[Exclusion] = []
+
+
 class Site(BaseModel):
     id: str
     name: str
@@ -53,6 +64,7 @@ class Site(BaseModel):
     study_area: StudyArea
     grid: Grid
     weather: Weather
+    screening: Screening = Screening()
 
     @classmethod
     def load(cls, site_id: str) -> "Site":

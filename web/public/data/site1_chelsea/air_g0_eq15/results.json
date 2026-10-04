@@ -1,0 +1,153 @@
+{
+ "scenario": {
+  "cooling": "air",
+  "it_growth": 0.0,
+  "equity_weight": 1.5,
+  "id": "air_g0_eq15"
+ },
+ "it_load": {
+  "value": 31.8,
+  "low": 24.5,
+  "high": 36.7,
+  "confidence": "medium",
+  "method": "LL84 building electricity minus LL84 office-median baseline, divided by PUE",
+  "steps": {
+   "building_electricity_gwh": 505.3,
+   "building_avg_mw": 57.7,
+   "building_gfa_ft2": 2329640,
+   "office_peer_count": 255,
+   "office_intensity_kwh_ft2_median": 37.7,
+   "office_baseline_mw": 10.0,
+   "dc_load_mw": 47.7,
+   "pue": 1.5
+  },
+  "source": "NYC LL84 2023, BBL 1007390001"
+ },
+ "supply": {
+  "it_load_mw_mean": 31.8,
+  "q_src_mw_mean": 27.03,
+  "q_src_gwh": 236.7829,
+  "t_src_in_c": 30.0,
+  "t_src_out_c": 22.0
+ },
+ "design": {
+  "hp_mw": 26.2497,
+  "hp_max_mw": 41.1805,
+  "objective_usd_per_yr": 898675.1759,
+  "solve_seconds": 68.8782,
+  "status": "Optimal",
+  "graph_nodes": 427,
+  "graph_edges": 670,
+  "candidates": 61,
+  "binaries": 731,
+  "pipe_km": 2.1605,
+  "mip_gap": 0.005,
+  "time_limit_s": 120,
+  "dc_heat_available_mwh": 236782.908
+ },
+ "economics": {
+  "capex_usd": {
+   "total": 56167432.5979,
+   "pipes": 12580447.1048,
+   "heat_pump": 29530890.8192,
+   "connections": 14056094.674
+  },
+  "annual_usd": {
+   "customer_avoided_fuel_cost": 4525534.6344,
+   "hp_electricity": 4223522.6843,
+   "om": 573137.8299,
+   "dc_cooling_savings": 2410553.219,
+   "ll97_penalties_avoided": 1341149.9865,
+   "system_net": 3480577.3257,
+   "customer_savings_at_discount": 678830.1952,
+   "nycha_savings_at_discount": 277313.5014
+  },
+  "energy_mwh": {
+   "delivered": 72369.747,
+   "produced": 76989.0925,
+   "hp_electricity": 23450.9866,
+   "dc_heat_recovered": 53538.1059
+  },
+  "kpis": {
+   "system_npv_usd": -11673973.0071,
+   "lcoh_usd_per_mwh": 93.6842,
+   "simple_payback_yr": 16.1374,
+   "tco2e_avoided_per_yr": 13127.0859,
+   "tco2e_fuel_avoided": 15312.1402,
+   "tco2e_grid_added": 5090.3374,
+   "tco2e_dc_cooling_avoided": 2905.2831,
+   "ll97_penalties_avoided_usd_per_yr": 1341149.9865,
+   "buildings_connected": 14,
+   "homes_served": 3157.0,
+   "homes_high_vulnerability": 2899.0,
+   "share_heat_to_high_vulnerability": 0.796,
+   "nycha_homes_served": 944.0,
+   "cop_avg": 3.283,
+   "hp_mw": 26.2497,
+   "pipe_km": 2.1605,
+   "dc_heat_reused_share": 0.2261
+  }
+ },
+ "validation": {
+  "development": "FULTON",
+  "months": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12
+  ],
+  "modeled_mwh": [
+   3575.0,
+   3538.0,
+   3387.0,
+   1648.0,
+   1133.0,
+   617.0,
+   559.0,
+   561.0,
+   674.0,
+   1290.0,
+   3035.0,
+   3485.0
+  ],
+  "metered_mwh": [
+   3484.0,
+   3201.0,
+   3374.0,
+   1529.0,
+   1474.0,
+   818.0,
+   262.0,
+   690.0,
+   755.0,
+   1184.0,
+   3007.0,
+   3050.0
+  ],
+  "r2": 0.9746,
+  "annual_modeled_mwh": 23501.9607,
+  "annual_metered_mwh": 22826.5633,
+  "steam_cost_usd": 2071826.0,
+  "steam_price_usd_per_mmbtu": 22.6102,
+  "source": "NYC Open Data smdw-73pj (NYCHA steam consumption and cost), 2023 bills"
+ },
+ "cop": {
+  "avg": 3.283,
+  "min": 2.7036,
+  "max": 3.7372
+ },
+ "counts": {
+  "candidates_scored": 724,
+  "eligible": 714,
+  "screened_out": 339,
+  "shortlisted_for_milp": 61
+ }
+}

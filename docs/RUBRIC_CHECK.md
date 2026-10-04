@@ -27,3 +27,22 @@ Rubric: 5 equal categories × 1–4 points (max 20). Updated at every milestone.
 
 **Weakest:** Technology and Theme are tied, because nothing is simulated yet.
 **Highest-leverage fix:** M2. The matcher must make the equity weighting explicit (NYCHA campuses ranked with per-dimension reasons), and the MILP must select buildings visibly. That moves Technology and Theme together.
+
+## M2 — Tier 1 engine (2026-10-04)
+Base result (Site 1, air-cooled, today's IT load, equity weight 1.5):
+- 14 buildings, 3,157 homes (944 NYCHA)
+- 82% of heat goes to high-vulnerability households
+- 13,100 tCO2e/yr avoided; $1.34M/yr LL97 penalties avoided
+- System NPV −$11.7M at 6%; LCOH $94/MWh
+
+| Category | Score | Reasoning |
+|---|---|---|
+| Technology | 3 | CoolProp cycle model, MILP on the real street graph (0.5% gap), demand validated against metered bills (R² 0.975), data-derived IT load. Not yet visible in the UI, which caps the score at 3 |
+| Presentation | 2 | Results exist only as JSON. The map has no panels yet |
+| Innovation | 3 | Cogeneration-signature screening, the DC-cooling value stream, and the equity shadow price as an explicit lever are all distinctive |
+| Execution | 3 | 34 tests pass (energy balance, flow conservation, hand-checked NPV, COP bounds, validation). The pipeline is reproducible |
+| Theme | 3 | Equity is built into both matcher and MILP; 82% of heat reaches high-vulnerability households. Not visible yet |
+| **Total** | **14/20** | |
+
+**Weakest:** Presentation.
+**Highest-leverage fix:** M3. Put the ranking (per-dimension bars), the chosen-vs-rejected-with-reasons view, pipes and the KPI strip on screen. Make the negative-NPV finding a story ("what it takes to make this bankable") rather than something to hide.

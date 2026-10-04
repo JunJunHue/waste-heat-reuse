@@ -28,6 +28,8 @@ def fetch_site(site: Site) -> None:
             ("NYC PLUTO", lambda: S.nyc_pluto(sid, bb)),
             ("NYC LL84 2023", lambda: S.nyc_ll84(2023)),
             ("NYC CSCL streets", lambda: S.nyc_cscl(sid, bb)),
+            ("NYCHA data book", S.nycha_databook),
+            ("NYCHA steam bills", lambda: S.nycha_steam(2023)),
         ]
         optional += [("NYC parks", lambda: S.nyc_parks(sid, bb))]
     else:

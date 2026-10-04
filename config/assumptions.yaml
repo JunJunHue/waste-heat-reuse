@@ -24,34 +24,35 @@ policy:
     unit: tCO2e/kBtu
     source: "LL97 §28-320.3.1.1 emissions coefficients (2024–2029)"
     confidence: high
+  ll97_capture_fraction:
+    value: 0.75
+    low: 0.3
+    high: 1.0
+    unit: fraction
+    source: "Share of avoided LL97-accounted emissions that actually avoid penalties (i.e. the building is above its 2030 cap). Most large NYC buildings must cut emissions to meet 2030 caps (Urban Green Council LL97 analyses), but not all. Low confidence; ranged in what-ifs. NYCHA follows a separate compliance pathway, so it gets 0."
+    confidence: low
   ll97_ef_electricity:
     value: 0.000288962
     unit: tCO2e/kWh
     source: "LL97 §28-320.3.1.1 emissions coefficients (2024–2029)"
     confidence: high
 
-supply:
-  t_return_air_cooled:
-    value: 30
-    low: 25
-    high: 35
-    unit: degC
-    source: "Air-cooled hot-aisle/CRAH return water range; challenge prompt and OCP Heat Reuse whitepaper terminology"
-    confidence: medium
-  t_return_liquid_cooled:
-    value: 50
-    low: 45
-    high: 60
-    unit: degC
-    source: "Direct-to-chip facility water return; ASHRAE TC9.9 W45+ classes; OCP Heat Reuse whitepaper"
-    confidence: medium
-
-demand:
-  t_dhw_min:
-    value: 60
-    unit: degC
-    source: "Legionella control storage temperature — ASHRAE Standard 188 / WHO guidance"
+emissions:
+  ef_natural_gas_physical:
+    value: 53.06
+    unit: kgCO2e/MMBtu
+    source: "US EPA GHG Emission Factors Hub (natural gas combustion, 53.06 kg CO2/MMBtu)"
     confidence: high
+  ef_oil2_physical:
+    value: 73.96
+    unit: kgCO2e/MMBtu
+    source: "US EPA GHG Emission Factors Hub (distillate fuel oil No. 2)"
+    confidence: high
+  ef_steam_physical:
+    value: 44.93
+    unit: kgCO2e/MMBtu
+    source: "Con Ed district steam; LL97 2024-29 coefficient (0.00004493 tCO2e/kBtu) used as the physical factor"
+    confidence: medium
 
 grid:
   # Hourly carbon intensity = generation-weighted emission factors over EIA-930 NYIS fuel mix (in-state generation; imports excluded).
@@ -94,3 +95,399 @@ grid:
     unit: dimensionless
     source: "PROXY ONLY (used when mis.nyiso.com is unreachable). Hourly LBMP shape = (NYISO load / mean load)^beta, scaled so the load-weighted mean equals the published zonal average. beta reflects a convex merit-order curve; not calibrated."
     confidence: low
+
+prices:
+  gas_commercial_ny_2023:
+    value: 9.25
+    low: 7.5
+    high: 12.0
+    unit: USD/MMBtu
+    source: "EIA, NY commercial natural gas price 2023 = $9.59/Mcf (https://www.eia.gov/dnav/ng/ng_pri_sum_dcu_SNY_a.htm), / 1.037 MMBtu per Mcf"
+    confidence: high
+  steam_coned_2023:
+    value: 21.3
+    low: 18
+    high: 30
+    unit: USD/MMBtu
+    source: "MEASURED: NYCHA Fulton Houses 2023 Con Ed steam bills (NYC Open Data smdw-73pj): 84,265 Mlb for $2,138,297 = $25.4/Mlb = $21.3/MMBtu at 1.194 MMBtu/Mlb. Seasonal: ~$30/Mlb winter, ~$12/Mlb summer. High end covers the 2024-25 rate increases (NY PSC order, +20.6% for SC-1)."
+    confidence: high
+  oil2_ny_2023:
+    value: 30
+    low: 22
+    high: 38
+    unit: USD/MMBtu
+    source: "Approximate NY 2023 retail heating oil (~$4.0-4.5/gal per NYSERDA weekly heating-fuel price series), / 0.1385 MMBtu/gal. Not re-verified against a fetched file. Oil is <10% of Site 1 fossil heat."
+    confidence: low
+  electricity_commercial_ny_2023:
+    value: 180.1
+    low: 150
+    high: 220
+    unit: USD/MWh
+    source: "EIA Electric Power Annual Table 2.10: NY commercial average retail price 2023 = 18.01 c/kWh (https://www.eia.gov/electricity/annual/html/epa_02_10.html). Hourly price = LBMP_h + (retail_avg - LBMP_avg)"
+    confidence: high
+  electricity_commercial_upstate_2023:
+    value: 130
+    low: 100
+    high: 180
+    unit: USD/MWh
+    source: "Upstate NY (NYSEG) commercial rates run well below the statewide 18.01 c/kWh average, which NYC dominates. A NYSEG large-commercial estimate; low confidence."
+    confidence: low
+
+supply:
+  t_return_air_cooled:
+    value: 30
+    low: 25
+    high: 35
+    unit: degC
+    source: "Air-cooled hot-aisle/CRAH return water range; challenge prompt and OCP Heat Reuse whitepaper terminology"
+    confidence: medium
+  t_return_liquid_cooled:
+    value: 50
+    low: 45
+    high: 60
+    unit: degC
+    source: "Direct-to-chip facility water return; ASHRAE TC9.9 W45+ classes; OCP Heat Reuse whitepaper"
+    confidence: medium
+  pue_air_cooled:
+    value: 1.5
+    low: 1.3
+    high: 1.7
+    unit: dimensionless
+    source: "Uptime Institute Global Data Center Survey 2023: industry-average PUE 1.58; older multi-tenant urban facilities sit at or above the average"
+    confidence: medium
+  pue_liquid_cooled:
+    value: 1.2
+    low: 1.1
+    high: 1.3
+    unit: dimensionless
+    source: "Direct liquid-cooled facilities report PUE ~1.1-1.3 (OCP Heat Reuse whitepaper; vendor case studies)"
+    confidence: medium
+  capture_fraction_air:
+    value: 0.85
+    low: 0.7
+    high: 0.95
+    unit: fraction of IT heat
+    source: "Share of IT heat that reaches the facility water loop through CRAH/rear-door coils; the remainder is lost through the envelope and fans. Engineering estimate."
+    confidence: low
+  capture_fraction_liquid:
+    value: 0.75
+    low: 0.65
+    high: 0.85
+    unit: fraction of IT heat
+    source: "Direct-to-chip cold plates capture ~70-80% of server heat at high temperature; the rest is air-side (OCP Heat Reuse whitepaper)"
+    confidence: medium
+  dc_cooling_plant_cop:
+    value: 4.0
+    low: 3.0
+    high: 6.0
+    unit: MWh_heat_removed / MWh_elec
+    source: "Whole-plant cooling efficiency (chillers + towers + pumps) of a legacy air-cooled colo. PUE 1.5 implies ~0.3-0.4 MWh_e overhead per MWh of IT heat (Uptime Institute 2023), roughly COP 3-4 incl. fans. Heat taken by the heat-pump evaporator is heat this plant no longer rejects."
+    confidence: medium
+  it_diurnal_amplitude:
+    value: 0.04
+    low: 0.0
+    high: 0.10
+    unit: fraction of mean IT load
+    source: "Colocation IT load is nearly flat; small diurnal swing. Engineering estimate."
+    confidence: medium
+  source_delta_t:
+    value: 8
+    unit: K
+    source: "Heat pump evaporator cools DC return water by ~8 K before it goes back to the DC loop; design choice"
+    confidence: medium
+  office_baseline_quantile:
+    value: 0.5
+    low: 0.5
+    high: 0.9
+    unit: quantile
+    source: "Office-load baseline for the IT-load derivation = this quantile of LL84 electricity intensity for Manhattan offices >500k ft2 (D7)"
+    confidence: medium
+
+heat_pump:
+  isentropic_efficiency:
+    value: 0.70
+    low: 0.60
+    high: 0.78
+    unit: dimensionless
+    source: "Large screw/centrifugal compressors in industrial HPs: 0.65-0.78 (IEA HPT Annex 58 high-temperature heat pumps)"
+    confidence: medium
+  approach_k:
+    value: 3
+    unit: K
+    source: "Evaporator/condenser approach temperature; typical plate HX design"
+    confidence: medium
+  capex_per_kw_th:
+    value: 900
+    low: 650
+    high: 1400
+    unit: USD/kW_th
+    source: "Danish Energy Agency, Technology Data - Generation of Electricity and District Heating: large electric HPs ~0.6-1.0 MEUR/MW_th installed. Escalated for US/NYC labor."
+    confidence: medium
+  om_pct_capex:
+    value: 0.02
+    unit: fraction/yr
+    source: "DEA technology catalogue: fixed O&M ~2%/yr of investment for large HPs"
+    confidence: medium
+
+demand:
+  t_dhw_min:
+    value: 60
+    unit: degC
+    source: "Legionella control storage temperature — ASHRAE Standard 188 / WHO guidance"
+    confidence: high
+  fossil_to_heat_fraction_res:
+    value: 0.92
+    unit: fraction
+    source: "Share of multifamily fossil fuel used for space heat + DHW (rest is cooking, mostly gas ranges). EIA RECS 2020 NY multifamily end-use shares."
+    confidence: medium
+  fossil_to_heat_fraction_com:
+    value: 0.95
+    unit: fraction
+    source: "Commercial fossil fuel is mostly space heat + DHW (EIA CBECS 2018 Mid-Atlantic end-use shares)"
+    confidence: medium
+  boiler_eff_gas:
+    value: 0.80
+    low: 0.75
+    high: 0.88
+    unit: fraction
+    source: "Seasonal efficiency of existing NYC multifamily/commercial gas boilers (NYSERDA multifamily performance data)"
+    confidence: medium
+  boiler_eff_oil:
+    value: 0.78
+    unit: fraction
+    source: "Seasonal efficiency of existing oil boilers (NYSERDA)"
+    confidence: medium
+  steam_to_heat_eff:
+    value: 0.85
+    unit: fraction
+    source: "Building-side conversion/distribution losses for purchased district steam (condensate, HX). Engineering estimate."
+    confidence: low
+  dhw_share_res:
+    value: 0.28
+    low: 0.20
+    high: 0.35
+    unit: fraction of heat
+    source: "DHW share of multifamily heating energy in NYC (NYSERDA / EIA RECS NY multifamily: water heating ~25-30% of heat)"
+    confidence: medium
+  dhw_share_com:
+    value: 0.08
+    low: 0.04
+    high: 0.15
+    unit: fraction of heat
+    source: "DHW share of office/commercial heat (CBECS)"
+    confidence: medium
+  t_balance_point:
+    value: 16
+    unit: degC
+    source: "Heating balance point for degree-hour shaping (NYC multifamily ~16-18 C)"
+    confidence: medium
+  t_design_outdoor:
+    value: -10
+    unit: degC
+    source: "NYC 99.6% heating design dry-bulb ~ -10 C (ASHRAE Fundamentals climatic data, LaGuardia/Central Park)"
+    confidence: high
+  t_supply_design_pre1980:
+    value: 80
+    unit: degC
+    source: "Hydronic supply at design day for older buildings (outdoor-reset curve tops out ~80 C); steam systems are assumed converted to low-temperature hydronic at the building interface"
+    confidence: medium
+  t_supply_design_post1980:
+    value: 65
+    unit: degC
+    source: "Newer buildings with larger emitters: ~60-70 C design supply"
+    confidence: medium
+  t_supply_min_reset:
+    value: 45
+    unit: degC
+    source: "Outdoor-reset floor of space-heating supply at the balance point"
+    confidence: medium
+  min_annual_heat_mwh:
+    value: 300
+    unit: MWh_th/yr
+    source: "Candidate screening: smaller buildings are not worth a dedicated connection in phase 1. Design choice."
+    confidence: high
+
+network:
+  supply_temp_c:
+    value: 75
+    unit: degC
+    source: "Network supply temperature (4th-generation district heating, Grundfos District Energy application guide: 55-80 C)"
+    confidence: medium
+  t_supply_floor_c:
+    value: 65
+    unit: degC
+    source: "Network supply never drops below 60 C DHW + 5 K HX approach (legionella-safe DHW at every building)"
+    confidence: high
+  t_supply_design_c:
+    value: 80
+    unit: degC
+    source: "Network supply on the design day (pre-1980 buildings need ~80 C at -10 C outdoor). Outdoor-reset between floor and design, as in 4GDH practice (Grundfos District Energy guide)."
+    confidence: medium
+  return_temp_c:
+    value: 40
+    unit: degC
+    source: "Network return temperature (4GDH)"
+    confidence: medium
+  max_velocity_m_s:
+    value: 2.5
+    unit: m/s
+    source: "Velocity limit for DH mains (DN100-DN400 ~1.5-3 m/s; Grundfos District Energy guide)"
+    confidence: medium
+  pipe_cost_multiplier_nyc:
+    value: 1.0
+    low: 0.7
+    high: 1.8
+    unit: multiplier
+    source: "Sensitivity knob on the pipe cost table (pipes.*). The table is already set for dense Manhattan ROW; this scales it for what-ifs."
+    confidence: low
+  service_line_cost_per_m:
+    value: 3000
+    unit: USD/m
+    source: "Building service connection (small-bore pre-insulated pair, sidewalk/vault entry). Low confidence; the vault entry dominates."
+    confidence: low
+  design_discount_rate:
+    value: 0.06
+    unit: fraction/yr real
+    source: "System-level design rate, midway between public (4%) and private (8%) capital. The deal room re-evaluates each ownership model at its own rate."
+    confidence: medium
+  equity_value_per_weight:
+    value: 10
+    unit: USD/MWh per unit equity weight
+    source: "Policy shadow price: community-benefit value per MWh delivered to high-vulnerability users, scaled by the equity weight (1.5 -> $15/MWh x SVI score). Makes the equity trade-off explicit and tunable; it is not a market price."
+    confidence: high
+  pipe_cost_fixed_per_m:
+    value: 3600
+    unit: USD/m
+    source: "Linear fit of the pipes.* cost table vs hydraulic capacity (DN100-DN500): cost ~= 3,600 + 90 x MW per trench-metre. The MILP uses the fit; the final design is re-costed with the actual DN table."
+    confidence: medium
+  pipe_cost_per_mw_m:
+    value: 90
+    unit: USD/(MW*m)
+    source: "Slope of the same linear fit"
+    confidence: medium
+  heat_loss_fraction:
+    value: 0.06
+    unit: fraction of delivered heat
+    source: "Annual network heat losses for compact urban 4GDH networks: 5-10% (Grundfos District Energy guide; Lund et al. 2014)"
+    confidence: medium
+  hp_peak_coverage:
+    value: 0.6
+    low: 0.5
+    high: 0.8
+    unit: fraction of connected peak
+    source: "HP sized for ~60% of connected peak covers ~90%+ of annual energy (load-duration rule of thumb); the existing building boilers stay as peak/backup. Verified by the 8760 dispatch in M5."
+    confidence: medium
+  hp_energy_coverage:
+    value: 0.92
+    low: 0.85
+    high: 0.97
+    unit: fraction of annual heat
+    source: "Annual energy share met by the HP when sized at hp_peak_coverage (load-duration curve). Replaced by 8760 dispatch output in M5."
+    confidence: medium
+
+building_interface:
+  substation_cost_per_kw:
+    value: 150
+    low: 100
+    high: 250
+    unit: USD/kW_peak
+    source: "Building HX substation, controls, metering (DEA District Heating catalogue ~100-200 EUR/kW for large buildings)"
+    confidence: medium
+  steam_conversion_cost_per_kw:
+    value: 400
+    low: 250
+    high: 700
+    unit: USD/kW_peak
+    source: "Converting a steam-heated building's plant room to accept hot water (HX + new hydronic header; risers/radiators reused with steam-to-hot-water conversion kits). High uncertainty."
+    confidence: low
+
+finance:
+  soft_cost_fraction:
+    value: 0.25
+    low: 0.15
+    high: 0.40
+    unit: fraction of hard capex
+    source: "Engineering, permitting, contingency and owner's costs on top of installed hard costs (typical 15-40% for public infrastructure)"
+    confidence: medium
+  network_om_pct_capex:
+    value: 0.01
+    unit: fraction/yr
+    source: "Pipe network O&M ~1%/yr of network capex (DEA district heating distribution catalogue)"
+    confidence: medium
+  analysis_years:
+    value: 25
+    unit: years
+    source: "Asset life of DH pipes (40+ yrs) and HPs (20-25 yrs); 25-yr analysis horizon"
+    confidence: high
+  discount_rate_private:
+    value: 0.08
+    low: 0.06
+    high: 0.10
+    unit: fraction/yr real
+    source: "Private infrastructure WACC (real). Assumption."
+    confidence: medium
+  discount_rate_public:
+    value: 0.04
+    low: 0.03
+    high: 0.05
+    unit: fraction/yr real
+    source: "Municipal / green-bond financing (real). Assumption."
+    confidence: medium
+  heat_price_discount:
+    value: 0.15
+    low: 0.0
+    high: 0.30
+    unit: fraction below customer's avoided cost
+    source: "Heat sold at a discount to each customer's current cost of heat (guaranteed-savings tariff). Policy choice exposed in the deal room."
+    confidence: high
+  carbon_value:
+    value: 0
+    low: 0
+    high: 190
+    unit: USD/tCO2e
+    source: "Optional social cost of carbon (EPA 2023 central $190/t). Off in the base case; what-if slider."
+    confidence: high
+
+matcher:
+  w_temperature: {value: 1.0, unit: weight, source: "Equal weights on the brief's five fit dimensions", confidence: high}
+  w_capacity: {value: 1.0, unit: weight, source: "Equal weights on the brief's five fit dimensions", confidence: high}
+  w_timing: {value: 1.0, unit: weight, source: "Equal weights on the brief's five fit dimensions", confidence: high}
+  w_seasonality: {value: 1.0, unit: weight, source: "Equal weights on the brief's five fit dimensions", confidence: high}
+  w_continuity: {value: 1.0, unit: weight, source: "Equal weights on the brief's five fit dimensions", confidence: high}
+  w_proximity: {value: 1.0, unit: weight, source: "Distance matters as much as each fit dimension. Design choice.", confidence: medium}
+  w_equity:
+    value: 1.5
+    low: 0.0
+    high: 3.0
+    unit: weight
+    source: "Equity weight (community-centered design). User-adjustable; sweeps are precomputed."
+    confidence: high
+  max_distance_m:
+    value: 1500
+    unit: m
+    source: "Candidate radius from the DC for phase 1 (beyond this, pipe cost dominates in dense Manhattan)"
+    confidence: medium
+
+pipes:
+  # Installed cost per trench-metre for a pre-insulated supply+return pair in a dense Manhattan street,
+  # including excavation, utility conflicts, restoration and traffic management. Built from the DEA
+  # inner-city range (~EUR 1,000-2,500/m by size) x ~3 for Manhattan right-of-way conditions.
+  # LOW confidence: the dominant capex uncertainty, so pipe_cost_multiplier_nyc ranges 0.7-1.8 in what-ifs.
+  # Capacity is computed in code from inner diameter, network.max_velocity_m_s and the supply/return delta-T.
+  dn100: {value: 3500, unit: USD/m, source: "DEA District Heating distribution catalogue (inner city) x Manhattan factor; inner diameter 0.107 m", confidence: low}
+  dn150: {value: 4200, unit: USD/m, source: "as dn100; inner diameter 0.160 m", confidence: low}
+  dn200: {value: 5000, unit: USD/m, source: "as dn100; inner diameter 0.210 m", confidence: low}
+  dn250: {value: 5800, unit: USD/m, source: "as dn100; inner diameter 0.263 m", confidence: low}
+  dn300: {value: 6600, unit: USD/m, source: "as dn100; inner diameter 0.313 m", confidence: low}
+  dn400: {value: 8200, unit: USD/m, source: "as dn100; inner diameter 0.394 m", confidence: low}
+  dn500: {value: 9800, unit: USD/m, source: "as dn100; inner diameter 0.492 m", confidence: low}
+
+continuity:
+  # Long-term anchor stability by occupant type: likelihood a customer stays connected for the 25-year asset life.
+  # This is a scoring rubric (design choice, docs/DECISIONS.md D10), not measured data.
+  public_housing: {value: 1.0, unit: score, source: "Public owner, 24/7 occupancy, no relocation risk", confidence: medium}
+  institution: {value: 0.9, unit: score, source: "Hospitals, universities, schools: long-lived institutional owners", confidence: medium}
+  multifamily: {value: 0.8, unit: score, source: "24/7 residential occupancy; private ownership can change", confidence: medium}
+  hotel: {value: 0.6, unit: score, source: "Occupancy-dependent; frequent ownership change", confidence: medium}
+  office: {value: 0.6, unit: score, source: "Daytime load; vacancy risk post-2020", confidence: medium}
+  other: {value: 0.5, unit: score, source: "Retail, mixed and unknown types", confidence: low}

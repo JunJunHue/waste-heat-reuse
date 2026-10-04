@@ -27,8 +27,15 @@ def main(argv: list[str] | None = None) -> int:
             if site.adapter != "nyc":
                 print("  skip: Site 2 adapter lands in M4")
                 continue
-            from .export import export_site
-            print(f"  exported -> {export_site(site)}")
+            from .export import export_result, export_site
+            from .scenario import BASE
+            from .simulate import run
+            res = run(site_id, BASE)
+            k = res.econ["kpis"]
+            print(f"  {BASE.id}: {k['buildings_connected']} buildings, {k['homes_served']:.0f} homes, "
+                  f"{k['tco2e_avoided_per_yr']:,.0f} tCO2e/yr, MILP {res.timings['milp']:.0f}s gap {res.design.stats['mip_gap']:.3%}")
+            print(f"  results -> {export_result(res)}")
+            print(f"  site    -> {export_site(site)}")
     return 0
 
 

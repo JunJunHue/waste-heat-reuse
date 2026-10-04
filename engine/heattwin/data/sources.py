@@ -53,6 +53,21 @@ def nyc_ll84(year: int = 2023) -> Path:
     })
 
 
+def nycha_databook() -> Path:
+    """NYCHA Development Data Book (evjd-dqpz): authoritative apartment and resident counts (PLUTO undercounts NYCHA)."""
+    return fetch("nycha", "development_data_book.json", f"{SOCRATA}/evjd-dqpz.json", {
+        "$select": "development,tds_,total_number_of_apartments,number_of_current_apartments,total_population,borough",
+        "$where": "borough='MANHATTAN'", "$limit": 5000})
+
+
+def nycha_steam(year: int = 2023) -> Path:
+    """NYCHA steam consumption and cost (smdw-73pj): metered monthly Con Ed steam bills per development."""
+    return fetch("nycha", f"steam_{year}_manhattan.json", f"{SOCRATA}/smdw-73pj.json", {
+        "$select": "development_name,revenue_month,rate_class,sum(consumption_mlbs) as mlbs,sum(current_charges) as usd",
+        "$where": f"borough='MANHATTAN' and starts_with(revenue_month, '{year}')",
+        "$group": "development_name,revenue_month,rate_class", "$limit": 50000})
+
+
 # ---------------------------------------------------------------- Streets & context (no Overpass)
 # OSM/Overpass was unreachable from our build environment (connections refused / hung), so street
 # geometry comes from official sources that serve plain HTTPS downloads. See docs/DECISIONS.md (D5).

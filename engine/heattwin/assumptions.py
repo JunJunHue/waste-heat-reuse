@@ -28,6 +28,21 @@ class Assumption(BaseModel):
         return self
 
 
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """PyYAML silently keeps the last of duplicate keys; for assumptions that would silently drop data."""
+
+
+def _construct_mapping(loader, node, deep=False):
+    keys = [loader.construct_object(k, deep=deep) for k, _ in node.value]
+    dupes = {k for k in keys if keys.count(k) > 1}
+    if dupes:
+        raise ValueError(f"duplicate keys in assumptions.yaml: {sorted(dupes)} (line {node.start_mark.line + 1})")
+    return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+
+_UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_mapping)
+
+
 class Assumptions:
     """Access as `a["policy.ll97_penalty"]` (Assumption) or `a.v("policy.ll97_penalty")` (float)."""
 
@@ -36,7 +51,7 @@ class Assumptions:
 
     @classmethod
     def load(cls, path: Path = DEFAULT_PATH) -> "Assumptions":
-        raw = yaml.safe_load(path.read_text())
+        raw = yaml.load(path.read_text(), Loader=_UniqueKeyLoader)
         entries = {
             f"{group}.{key}": Assumption(**spec)
             for group, items in raw.items()

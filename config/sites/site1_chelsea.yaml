@@ -25,3 +25,16 @@ weather:
   lat: 40.7411
   lon: -74.0029
   year: 2023
+screening:
+  # Properties whose fuel use is not building heat demand. Kept in outputs with a reason (explainable), never silently dropped.
+  max_fossil_intensity_kbtu_ft2: 200   # > ~p99 of candidates: on-site generation or data error
+  exclusions:
+    - pattern: "(?i)cogen|\\bCHP\\b"
+      reason: "Fuel use includes on-site cogeneration (electricity production), not just heat demand"
+      source: "Property name in LL84"
+    - pattern: "(?i)^Penn South"
+      reason: "Runs its own cogeneration plant (100% self-generated electricity since 1986); gas use is not heat demand"
+      source: "https://www.pennsouth.coop/penn-south-history.html"
+    - pattern: "(?i)^111 Eighth Avenue$"
+      reason: "The data center building itself (heat source)"
+      source: "LL84 BBL 1007390001"
