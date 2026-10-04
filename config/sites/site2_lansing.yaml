@@ -1,5 +1,7 @@
 id: site2_lansing
 name: "Lake Hawkeye (former Cayuga Power Plant), Lansing NY"
+county_fips: "109"
+adapter: synthetic_upstate
 kind: suburban_proposed
 data_center:
   name: "TeraWulf Lake Hawkeye (proposed)"
@@ -13,6 +15,7 @@ study_area:
 grid:
   iso: NYISO
   lbmp_zone: CENTRL
+  lbmp_avg_key: grid.lbmp_avg_2023_zone_bce
 weather:
   lat: 42.6036
   lon: -76.6336

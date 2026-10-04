@@ -1,10 +1,13 @@
 SITES ?= site1_chelsea site2_lansing
 PY := uv run python -m heattwin.cli
 
-.PHONY: data simulate web dev test check offline-check all clean-processed
+.PHONY: data data-large simulate web dev test check offline-check all clean-processed
 
 data:            ## fetch (cached) raw data and prepare processed inputs for every site
 	$(PY) data $(SITES)
+
+data-large:      ## one-time ~550 MB DOE LEAD download (energy burden); resumable
+	uv run python -c "from heattwin.data import sources as S; print(S.doe_lead_ny_tract())"
 
 simulate:        ## run the engine for every site/scenario and export to web/public/data
 	$(PY) simulate $(SITES)

@@ -19,3 +19,9 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 .brand .sub { font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--bg); color: var(--muted); font-size: 14px; transition: opacity 0.4s; }
 .loading.hidden { opacity: 0; pointer-events: none; }
+.tooltip { background: var(--panel) !important; border: 1px solid var(--border); border-radius: 8px; color: var(--text) !important; font: 13px/1.5 var(--font) !important; padding: 10px 12px !important; max-width: 300px; }
+.tag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px; margin: 2px 0; }
+.tag.dc { background: rgba(255, 107, 53, 0.18); color: var(--hot); }
+.tag.nycha { background: rgba(64, 196, 170, 0.18); color: #40c4aa; }
+.error-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; color: var(--text); text-align: center; line-height: 1.6; }
+.error-card code { background: #1b2430; padding: 1px 5px; border-radius: 4px; }

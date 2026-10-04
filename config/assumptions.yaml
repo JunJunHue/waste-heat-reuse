@@ -52,3 +52,45 @@ demand:
     unit: degC
     source: "Legionella control storage temperature — ASHRAE Standard 188 / WHO guidance"
     confidence: high
+
+grid:
+  # Hourly carbon intensity = generation-weighted emission factors over EIA-930 NYIS fuel mix (in-state generation; imports excluded).
+  ef_natural_gas_gen:
+    value: 0.42
+    low: 0.37
+    high: 0.55
+    unit: tCO2e/MWh
+    source: "Typical NY gas fleet output rate (combined-cycle ~0.37, peakers ~0.55+); EPA eGRID2022 NYCW/NYUP plant-level rates. Fleet-average approximation."
+    confidence: medium
+  ef_petroleum_gen:
+    value: 0.80
+    unit: tCO2e/MWh
+    source: "EPA eGRID2022 oil-fired steam/CT output rates (~0.75–0.85)"
+    confidence: medium
+  ef_coal_gen:
+    value: 1.00
+    unit: tCO2e/MWh
+    source: "EPA eGRID2022 coal output rate (~1.0); NY coal generation is ~0 in 2023"
+    confidence: medium
+  ef_other_gen:
+    value: 0.0
+    unit: tCO2e/MWh
+    source: "Nuclear, hydro, wind, solar = 0. 'Other' (biomass, waste) treated as 0 (biogenic). A conservative simplification"
+    confidence: medium
+  lbmp_avg_2023_zone_j:
+    value: 35.43
+    unit: USD/MWh
+    source: "Potomac Economics, 2023 NYISO State of the Market Report, Fig. A-2 (load-weighted avg day-ahead LBMP, NYC Zone J) — https://www.potomaceconomics.com/wp-content/uploads/2024/05/NYISO-2023-SOM-Full-Report__5-13-2024-Final.pdf"
+    confidence: high
+  lbmp_avg_2023_zone_bce:
+    value: 28.30
+    unit: USD/MWh
+    source: "Potomac Economics, 2023 NYISO SOM Report, Fig. A-2 (load-weighted avg day-ahead LBMP, Central NY Zones B/C/E)"
+    confidence: high
+  lbmp_proxy_load_exponent:
+    value: 1.5
+    low: 1.0
+    high: 2.5
+    unit: dimensionless
+    source: "PROXY ONLY (used when mis.nyiso.com is unreachable). Hourly LBMP shape = (NYISO load / mean load)^beta, scaled so the load-weighted mean equals the published zonal average. beta reflects a convex merit-order curve; not calibrated."
+    confidence: low

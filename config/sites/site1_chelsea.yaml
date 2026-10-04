@@ -1,12 +1,18 @@
 id: site1_chelsea
 name: "111 8th Avenue, Chelsea, Manhattan"
+county_fips: "061"
+adapter: nyc
 kind: urban_commissioned
 data_center:
   name: "111 8th Avenue (carrier hotel)"
   lon: -74.0029
   lat: 40.7411
-  # IT load is not publicly reported. This range is a labeled parameter, not a fact. See assumptions.yaml once the supply module lands.
-  it_load_mw: {value: 15, low: 5, high: 30, confidence: low, source: "No public figure; bracketed from building scale. Labeled in UI."}
+  # IT load is not publicly reported. We DERIVE it from the building's own LL84 2023 disclosure:
+  #   505.3 GWh/yr grid electricity (57.7 MW avg) minus an office baseline (Manhattan offices >500k ft2,
+  #   LL84 median 37.7 kWh/ft2 x 2.33M ft2 = 10.0 MW; p90 = 16.0 MW) = 41.7-47.6 MW data-center load,
+  #   / PUE 1.3-1.7 = 24.5-36.7 MW IT. Recomputed in heattwin.supply; see docs/DECISIONS.md D7.
+  it_load_mw: {value: 30, low: 24, high: 37, confidence: medium, source: "Derived from LL84 2023 (BBL 1007390001) electricity minus LL84 office-median baseline, / PUE 1.3-1.7"}
+  ll84_bbl: "1007390001"
   existing_cooling: air
 study_area:
   # roughly a 1.2 km box around the DC (Chelsea / Meatpacking / West Village edge)
@@ -14,6 +20,7 @@ study_area:
 grid:
   iso: NYISO
   lbmp_zone: N.Y.C.
+  lbmp_avg_key: grid.lbmp_avg_2023_zone_j
 weather:
   lat: 40.7411
   lon: -74.0029
