@@ -9,9 +9,13 @@
   <body>
     <div id="map"></div>
     <div id="overlay">
-      <header class="brand">Heat Twin <span class="sub">data-center heat → community value</span></header>
+      <header class="brand"><span class="logo"></span>Heat Twin <span class="sub">Loading…</span></header>
+      <section id="kpis" class="kpis" aria-label="Key outcomes"></section>
+      <aside id="side" class="side panel" aria-label="Offtaker ranking"></aside>
+      <section id="evidence" class="evidence panel" aria-label="Evidence"></section>
+      <div id="legend" class="legend panel"></div>
     </div>
-    <div id="loading" class="loading">Loading site…</div>
+    <div id="loading" class="loading"><div class="spinner"></div>Loading site…</div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

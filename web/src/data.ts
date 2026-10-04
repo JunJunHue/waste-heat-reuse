@@ -8,6 +8,8 @@ export interface Manifest {
   data_center: { name: string; lon: number; lat: number; it_load_mw: RangedParam; existing_cooling: string };
   layers: { buildings: string; streets: string; context: string };
   labels: Record<string, string>;
+  scenarios: string[];
+  default_scenario: string;
 }
 
 export interface BuildingProps {

@@ -232,7 +232,9 @@ def optimize(cands: pd.DataFrame, streets: gpd.GeoDataFrame, dc_lonlat: tuple[fl
     pipes = gpd.GeoDataFrame(rows, geometry="geometry", crs="EPSG:4326") if rows else \
         gpd.GeoDataFrame(columns=["flow_mw", "dn", "length_m", "capex_usd", "geometry"], geometry="geometry", crs="EPSG:4326")
 
-    rejected = _explain_rejections(cands.drop(index=sel), g, src, r, fixed_m, var_mw_m,
+    built = {src} | {n for i, (u, v) in enumerate(E) if (x[i].value() or 0) > 0.5 for n in (u, v)}
+    hp_ann_per_mw = (r + a.v("heat_pump.om_pct_capex")) * c_hp
+    rejected = _explain_rejections(cands.drop(index=sel), g, built, src, r, fixed_m, var_mw_m, hp_ann_per_mw,
                                    hp_mw >= hp_max - 1e-3)
     return Design(connected, rejected, pipes, hp_mw, hp_max, float(pulp.value(m.objective)), dt, status, {
         "graph_nodes": g.number_of_nodes(), "graph_edges": g.number_of_edges(), "candidates": len(K),
@@ -241,28 +243,36 @@ def optimize(cands: pd.DataFrame, streets: gpd.GeoDataFrame, dc_lonlat: tuple[fl
     })
 
 
-def _explain_rejections(rej: pd.DataFrame, g: nx.Graph, src,
-                        r: float, fixed_m: float, var_mw_m: float, supply_binding: bool) -> pd.DataFrame:
-    """Why wasn't each candidate chosen? Estimates the cost of a street route from the source (half shared with trunk)."""
-    lengths = nx.single_source_dijkstra_path_length(g, src, weight="length")
+def _explain_rejections(rej: pd.DataFrame, g: nx.Graph, built_nodes: set, src, r: float, fixed_m: float,
+                        var_mw_m: float, hp_ann_per_mw: float, supply_binding: bool) -> pd.DataFrame:
+    """Why wasn't each candidate chosen? Price its full marginal cost: new main from the BUILT network, trunk
+    upsizing all the way from the source, extra heat-pump capacity, and the building connection."""
+    lengths = nx.multi_source_dijkstra_path_length(g, built_nodes, weight="length")
+    from_src = nx.single_source_dijkstra_path_length(g, src, weight="length")
     rej = rej.copy()
-    reasons, extra = [], []
+    reasons, margins, ext = [], [], []
     for _, c in rej.iterrows():
-        path_m = lengths.get(c.node, np.inf)
-        ann_pipe = r * path_m * (fixed_m + var_mw_m * c.peak_net_mw) * 0.5   # assume half the route can share existing trunk
+        path_m = float(lengths.get(c.node, np.inf))
+        ann_pipe = r * (path_m * fixed_m + float(from_src.get(c.node, np.inf)) * var_mw_m * c.peak_net_mw)
+        ann_hp = hp_ann_per_mw * c.peak_net_mw
         ann_conn = r * c.conn_capex_usd
-        margin = c.annual_value_usd - ann_conn - ann_pipe
-        extra.append(margin)
+        cost = ann_pipe + ann_hp + ann_conn
+        margin = c.annual_value_usd - cost
+        margins.append(margin)
+        ext.append(path_m)
         if c.annual_value_usd <= 0:
             per = c.get("net_value_per_mwh")
             detail = f" (${per:,.0f}/MWh net)" if per is not None and np.isfinite(per) else ""
-            reasons.append(f"Heat pump heat costs more than this building's current heat{detail}")
-        elif margin < 0:
-            reasons.append(f"Connection and pipe cost (~${(ann_conn + ann_pipe) / 1e3:,.0f}k/yr) exceed annual value (${c.annual_value_usd / 1e3:,.0f}k/yr)")
-        elif supply_binding:
+            reasons.append(f"Heat-pump heat costs more than this building's current heat{detail}")
+        elif supply_binding and margin >= 0:
             reasons.append("Data-center heat fully allocated to higher-value users")
         else:
-            reasons.append("Lower net value per MW than the selected users")
+            ext_txt = f"{path_m:,.0f} m new main + " if path_m > 1 else ""
+            verdict = "exceeds" if margin < 0 else "roughly equals"
+            reasons.append(f"Cost to serve (~${cost / 1e3:,.0f}k/yr: {ext_txt}pipe ${ann_pipe / 1e3:,.0f}k, heat pump "
+                           f"${ann_hp / 1e3:,.0f}k, connection ${ann_conn / 1e3:,.0f}k) {verdict} its value "
+                           f"(${c.annual_value_usd / 1e3:,.0f}k/yr)")
     rej["reason"] = reasons
-    rej["est_margin_usd_per_yr"] = extra
+    rej["est_margin_usd_per_yr"] = margins
+    rej["extension_m"] = ext
     return rej

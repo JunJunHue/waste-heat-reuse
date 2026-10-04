@@ -34,7 +34,7 @@
   "hp_mw": 26.2497,
   "hp_max_mw": 41.1805,
   "objective_usd_per_yr": 898675.1759,
-  "solve_seconds": 68.8782,
+  "solve_seconds": 68.4186,
   "status": "Optimal",
   "graph_nodes": 427,
   "graph_edges": 670,

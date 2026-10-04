@@ -46,3 +46,16 @@ Base result (Site 1, air-cooled, today's IT load, equity weight 1.5):
 
 **Weakest:** Presentation.
 **Highest-leverage fix:** M3. Put the ranking (per-dimension bars), the chosen-vs-rejected-with-reasons view, pipes and the KPI strip on screen. Make the negative-NPV finding a story ("what it takes to make this bankable") rather than something to hide.
+
+## M3 — Tier 1 demo (2026-10-04)
+| Category | Score | Reasoning |
+|---|---|---|
+| Technology | 3 | The sophistication is now visible: 7-dimension fit fingerprints, MILP stats (731 binaries, 0.5% proven gap), the COP range, the IT-load derivation steps, and the validation chart against metered bills. Still missing is anything time-varying (no 8760 playback yet) |
+| Presentation | 3 | A clear and professional layout, with community KPIs first and a "How we know" evidence card. Every building is explained by fit bars, a $/MWh value breakdown, and a quantified reason when it isn't chosen. No guided narrative yet |
+| Innovation | 3 | The data-derived IT load, the validation against real bills, and quantified rejection reasons are all visible. The site comparison and deal room aren't built yet |
+| Execution | 3 | Offline, no console errors, loading and error states, deep links. 34 tests pass |
+| Theme | 3 | NYCHA is visible on the map and in the KPIs (944 NYCHA homes; 80% of heat to high-vulnerability homes). The Elliott-Chelsea gap (704 NYCHA homes, ~$170k/yr short) is quantified but not yet acted on |
+| **Total** | **15/20** | |
+
+**Weakest:** Presentation, Innovation and Theme are tied at 3. The single highest-leverage fix serves all three:
+**Highest-leverage fix:** M4 + M5. Build the site comparison (the innovation hook), then the deal room plus an equity-weight sweep that shows Elliott-Chelsea getting connected under a community or municipal ownership model. That turns the negative-NPV finding into the pitch's climax.
